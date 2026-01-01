@@ -1,0 +1,10 @@
+time.nist.gov
+pool.ntp.org
+time.windows.com
+ntp.ubuntu.com
+us.pool.ntp.org
+asia.pool.ntp.org
+europe.pool.ntp.org
+time.google.com
+ntp1.inrim.it
+ntp2.inrim.it

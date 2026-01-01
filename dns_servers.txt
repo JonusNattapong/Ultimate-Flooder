@@ -1,0 +1,10 @@
+# DNS servers for amplification attacks
+# Format: IP (port 53 is used automatically)
+# Note: These are public DNS resolvers, replace with actual vulnerable servers
+
+8.8.8.8
+1.1.1.1
+208.67.222.222
+8.8.4.4
+9.9.9.9
+149.112.112.112

@@ -1,0 +1,44 @@
+# ค่าคงที่และการตั้งค่าของ Ultimate Flooder  # คอมเมนต์ภาษาไทยสำหรับไฟล์ config
+
+# การตั้งค่าแอปพลิเคชัน  # คอมเมนต์ภาษาไทยสำหรับส่วนการตั้งค่า
+CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต่างๆของโปรแกรม
+    'DEFAULT_THREADS': 500,  # จำนวนเธรดเริ่มต้นสำหรับการโจมตี
+    'DEFAULT_DURATION': 60,  # ระยะเวลาการโจมตีเริ่มต้นเป็นวินาที
+    'DEFAULT_PORT': 80,  # พอร์ตเริ่มต้นสำหรับการโจมตี
+    'C2_DEFAULT_PORT': 6667,  # พอร์ตเริ่มต้นสำหรับเซิร์ฟเวอร์ C2
+    'NTP_SERVERS_FILE': 'ntp_servers.txt',  # ชื่อไฟล์ที่เก็บเซิร์ฟเวอร์ NTP
+    'PROXY_FILE': 'proxy.txt'  # ชื่อไฟล์ที่เก็บรายการพร็อกซี
+}
+
+# แบนเนอร์ ASCII (ตามที่ผู้ใช้ส่งเข้ามา)  # คอมเมนต์ภาษาไทยอธิบายแบนเนอร์
+BANNER = '''
+             ..ooo@@@XXX%%%xx..
+          .oo@@XXX%x%xxx..     ` .
+        .o@XX%%xx..               ` .
+      o@X%..                  ..ooooooo
+    .@X%x.                 ..o@@^^   ^^@@o
+  .ooo@@@@@@ooo..      ..o@@^          @X%
+  o@@^^^     ^^^@@@ooo.oo@@^             %
+ xzI    -*--      ^^^o^^        --*-     %
+ @@@o     ooooooo^@@^o^@X^@oooooo     .X%x
+I@@@@@@@@@XX%%xx  ( o@o )X%x@ROMBASED@@@X%x
+I@@@@XX%%xx  oo@@@@X% @@X%x   ^^^@@@@@@@X%x
+ @X%xx     o@@@@@@@X% @@XX%%x  )    ^^@X%x
+  ^   xx o@@@@@@@@Xx  ^ @XX%%x    xxx
+        o@@^^^ooo I^^ I^o ooo   .  x
+        oo @^ IX      I   ^X  @^ oo
+        IX     U  .        V     IX
+         V     .           .     V
+'''
+
+# User Agents สำหรับคำขอ HTTP  # คอมเมนต์ภาษาไทยสำหรับ User Agents
+USER_AGENTS = [  # ลิสต์เก็บ User Agent ต่างๆสำหรับปลอมตัว
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",  # User Agent สำหรับ Chrome บน Windows
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",  # User Agent สำหรับ Safari บน Mac
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",  # User Agent สำหรับ Chrome บน Linux
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",  # User Agent สำหรับ Firefox บน Windows
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"  # User Agent สำหรับ Chrome บน Mac
+]
+
+# URL Referer สำหรับคำขอ HTTP  # คอมเมนต์ภาษาไทยสำหรับ Referer URLs
+REFERERS = ["https://google.com", "https://bing.com", "https://yahoo.com", "https://duckduckgo.com"]  # ลิสต์เก็บ URL referer สำหรับปลอมตัว

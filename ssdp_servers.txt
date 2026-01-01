@@ -1,0 +1,5 @@
+# SSDP servers for amplification attacks
+# Format: IP:PORT
+# SSDP uses multicast address for UPnP discovery
+
+239.255.255.250:1900
