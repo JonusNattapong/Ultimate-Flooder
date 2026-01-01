@@ -112,3 +112,106 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# DDoS Tool Specific
+# ==================
+
+# Attack logs and output files
+*.log
+attack_logs/
+logs/
+debug.log
+error.log
+
+# Sensitive configuration files
+secrets.json
+credentials.json
+keys/
+*.key
+*.pem
+config.local.py
+config.production.py
+
+# Server lists (may contain real IPs)
+servers.txt
+custom_servers.txt
+proxies.txt
+custom_proxies.txt
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Build and distribution
+*.tar.gz
+*.zip
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS specific files
+Thumbs.db
+.DS_Store
+Desktop.ini
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Virtual environments (additional patterns)
+.venv/
+venv/
+ENV/
+env/
+.conda/
+conda/
+
+# Jupyter notebooks (if any)
+*.ipynb
+.ipynb_checkpoints/
+
+# Testing and coverage
+.coverage
+.pytest_cache/
+.tox/
+.cache/
+htmlcov/
+*.cover
+coverage.xml
+nosetests.xml
+
+# Documentation builds
+docs/_build/
+site/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Network capture files
+*.pcap
+*.cap
+
+# Compiled binaries
+*.pyc
+*.pyo
+__pycache__/
+*.so
+*.dll
+*.dylib
