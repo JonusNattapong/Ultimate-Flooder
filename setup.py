@@ -10,7 +10,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="ultimate-flooder",
-    version="1.0.0",
+    version="2.0.0",
     author="JonusNattapong",
     author_email="",
     description="Advanced DDoS Tool for Educational Purposes",
