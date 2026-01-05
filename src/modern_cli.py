@@ -277,106 +277,122 @@ class ModernCLI:
                 console.print("[bold red]❌ Invalid port number[/bold red]")
                 return ModernCLI.get_attack_params(choice)
 
+        if choice == "17":  # Port Scanner
+            panel = Panel(
+                f"[bold cyan]Port Scanner Configuration[/bold cyan]\n\n"
+                f"[bold white]Example Ranges:[/bold white]\n"
+                f"• Web: 80,443\n"
+                f"• Games: 25565,30120,7777\n"
+                f"• Databases: 3306,5432\n"
+                f"• Full: 1-65535",
+                border_style="cyan",
+                padding=(1, 2)
+            )
+            console.print(panel)
+
+            target = Prompt.ask("[bold yellow]Target (IP or Hostname)[/bold yellow]").strip()
+            if not target:
+                return ModernCLI.get_attack_params(choice)
+
+            port_input = Prompt.ask("[bold yellow]Ports (e.g. 80,443 or 1-1024)[/bold yellow]", default="1-1000").strip()
+            
+            # Parse ports
+            ports = []
+            try:
+                if "-" in port_input:
+                    start, end = map(int, port_input.split("-"))
+                    ports = list(range(start, end + 1))
+                else:
+                    ports = [int(p.strip()) for p in port_input.split(",")]
+            except:
+                console.print("[bold red]❌ Invalid port format![/bold red]")
+                return ModernCLI.get_attack_params(choice)
+
+            threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=100)
+            
+            return {
+                "target": target,
+                "ports": ports,
+                "port_text": port_input, # for display
+                "threads": threads,
+                "duration": 0, # Not used
+                "proxies": [] # Not used
+            }
+
         # Standard attack parameters
         attack_info = Menu.ATTACKS.get(choice)
         if not attack_info:
             return None
 
+        # Categorize attack
+        is_l7 = choice in ["1", "2", "5", "8", "12", "13", "14", "15", "16"]
+        is_l4 = choice in ["3", "4"]
+        is_amp = choice in ["6", "9", "10", "11"]
+
+        # Display category-specific panel
+        if is_l7:
+            example = "http://example.com"
+            description = "Layer 7 (Application) attack targeting web services."
+        elif is_l4:
+            example = "1.2.3.4"
+            description = "Layer 4 (Transport) attack targeting network protocols."
+        elif is_amp:
+            example = "Target IP"
+            description = "Amplification attack using vulnerable reflection servers."
+        else:
+            example = "Target"
+            description = "Special attack configuration."
+
         panel = Panel(
-            f"[bold cyan]{attack_info['name']} Configuration[/bold cyan]",
+            f"[bold cyan]{attack_info['name']}[/bold cyan]\n"
+            f"[dim]{description}[/dim]\n\n"
+            f"[bold white]Target Example:[/bold white] [green]{example}[/green]",
             border_style="cyan",
             padding=(1, 2)
         )
         console.print(panel)
 
         # Target input
-        target = Prompt.ask("[bold yellow]Target (IP or URL)[/bold yellow]").strip()
+        target_prompt = "[bold yellow]Target (IP or URL)[/bold yellow]" if is_l7 else "[bold yellow]Target (IP Address)[/bold yellow]"
+        target = Prompt.ask(target_prompt).strip()
         if not target:
             console.print("[bold red]❌ Target cannot be empty![/bold red]")
             return ModernCLI.get_attack_params(choice)
 
         from .security import validate_target
         if not validate_target(target):
-            console.print("[bold red]❌ Invalid target format! Please enter a valid IP or URL.[/bold red]")
+            console.print("[bold red]❌ Invalid target format![/bold red]")
             return ModernCLI.get_attack_params(choice)
 
         # Port input
         try:
+            default_port = 80 if is_l7 else (CONFIG['DEFAULT_PORT'])
             port = IntPrompt.ask(
                 "[bold yellow]Port[/bold yellow]",
-                default=CONFIG['DEFAULT_PORT']
+                default=default_port
             )
-
-            if not (1 <= port <= 65535):
-                console.print("[bold red]❌ Port must be between 1 and 65535[/bold red]")
-                return ModernCLI.get_attack_params(choice)
-
         except ValueError:
             console.print("[bold red]❌ Invalid port number[/bold red]")
             return ModernCLI.get_attack_params(choice)
 
         # Threads input
-        try:
-            threads = IntPrompt.ask(
-                "[bold yellow]Threads[/bold yellow]",
-                default=CONFIG['DEFAULT_THREADS']
-            )
-
-            if not (1 <= threads <= 1000):
-                console.print("[bold red]❌ Threads must be between 1 and 1000[/bold red]")
-                return ModernCLI.get_attack_params(choice)
-
-        except ValueError:
-            console.print("[bold red]❌ Invalid thread count[/bold red]")
-            return ModernCLI.get_attack_params(choice)
+        threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=CONFIG['DEFAULT_THREADS'])
 
         # Duration input
-        try:
-            duration = IntPrompt.ask(
-                "[bold yellow]Duration (seconds)[/bold yellow]",
-                default=CONFIG['DEFAULT_DURATION']
-            )
+        duration = IntPrompt.ask("[bold yellow]Duration (seconds)[/bold yellow]", default=CONFIG['DEFAULT_DURATION'])
 
-            if not (1 <= duration <= 3600):
-                console.print("[bold red]❌ Duration must be between 1 and 3600 seconds[/bold red]")
-                return ModernCLI.get_attack_params(choice)
-
-        except ValueError:
-            console.print("[bold red]❌ Invalid duration[/bold red]")
-            return ModernCLI.get_attack_params(choice)
-
-        # Max Requests input
-        try:
-            max_requests = IntPrompt.ask(
-                "[bold yellow]Total Requests (0 for unlimited)[/bold yellow]",
-                default=0
-            )
-
-            if max_requests < 0:
-                console.print("[bold red]❌ Total requests cannot be negative[/bold red]")
-                return ModernCLI.get_attack_params(choice)
-
-        except ValueError:
-            console.print("[bold red]❌ Invalid request count[/bold red]")
-            return ModernCLI.get_attack_params(choice)
-
-        # Proxy file input
-        proxy_file = Prompt.ask(
-            f"[bold yellow]Proxy file[/bold yellow] [dim]({CONFIG['PROXY_FILE']})[/dim]",
-            default=""
-        ).strip()
-
-        # Validate proxy file
+        # Max Requests and Proxy (Mostly for L7)
+        max_requests = 0
         proxies = []
-        if proxy_file:
-            from .utils import load_file_lines
-            if not os.path.isfile(proxy_file):
-                console.print(f"[bold red]❌ Proxy file not found: {proxy_file}[/bold red]")
-            elif os.path.getsize(proxy_file) > 1024 * 1024:
-                console.print("[bold red]❌ Proxy file too large (max 1MB)[/bold red]")
-            else:
-                proxies = load_file_lines(proxy_file)
-                console.print(f"[green]✅ Loaded {len(proxies)} proxies from {proxy_file}[/green]")
+
+        if is_l7:
+            max_requests = IntPrompt.ask("[bold yellow]Total Requests (0 for unlimited)[/bold yellow]", default=0)
+            proxy_file = Prompt.ask(f"[bold yellow]Proxy file[/bold yellow] [dim]({CONFIG['PROXY_FILE']})[/dim]", default="").strip()
+            if proxy_file:
+                from .utils import load_file_lines
+                if os.path.isfile(proxy_file):
+                    proxies = load_file_lines(proxy_file)
+                    console.print(f"[green]✅ Loaded {len(proxies)} proxies[/green]")
 
         return {
             "target": target,
@@ -403,10 +419,17 @@ class ModernCLI:
 
         table.add_row("Attack Type", attack_info["name"])
         table.add_row("Target", params["target"])
-        table.add_row("Port", str(params["port"]))
+        
+        if choice == "17":
+            table.add_row("Ports", params["port_text"])
+        else:
+            table.add_row("Port", str(params["port"]))
+
         table.add_row("Threads", str(params["threads"]))
-        table.add_row("Duration", f"{params['duration']}s")
-        table.add_row("Proxies", str(len(params["proxies"])))
+
+        if choice != "17":
+            table.add_row("Duration", f"{params['duration']}s")
+            table.add_row("Proxies", str(len(params["proxies"])))
 
         console.print(table)
         console.print()
@@ -444,12 +467,13 @@ class ModernCLI:
 
         # Start attack in background
         from .classes import AttackDispatcher
+        
+        if choice == "17":
+            # Port scanner is synchronous or handles its own threads
+            AttackDispatcher.execute(choice, params)
+            return
+
         attack_thread = threading.Thread(
-            target=AttackDispatcher.execute,
-            args=(choice, params, current_monitor),
-            daemon=True
-        )
-        attack_thread.start()
 
         # Start real-time monitoring display
         try:

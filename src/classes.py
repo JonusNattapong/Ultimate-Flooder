@@ -267,4 +267,7 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
 
         elif choice == "16":  # ถ้าเลือก Nginx Range DoS
             url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-            nginx_range_dos(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
+            nginx_range_dos(url, duration, proxies)  # เรียกฟังก์ชันโจมตี        elif choice == "17":  # Port Scanner
+            from .security import validate_target
+            from .attacks import port_scanner
+            port_scanner(target, params["ports"], threads)
