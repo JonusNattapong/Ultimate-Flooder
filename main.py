@@ -24,6 +24,8 @@ def main():
 
         try:  # ลองทำการโจมตี
             params = Menu.get_attack_params(choice)  # รับพารามิเตอร์สำหรับการโจมตี
+            if params is None:  # ถ้าพารามิเตอร์ไม่ถูกต้อง
+                continue  # วนกลับไปแสดงเมนูใหม่
             AttackDispatcher.execute(choice, params)  # เรียกใช้การโจมตีตามที่เลือก
         except KeyboardInterrupt:  # จัดการกรณีที่ผู้ใช้กด Ctrl+C
             print("\nAttack interrupted by user.")  # แสดงข้อความว่าการโจมตีถูกขัดจังหวะ
