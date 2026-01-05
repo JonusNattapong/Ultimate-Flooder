@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Command line interface for Ultimate Flooder
+Command line interface for IP-HUNTER
 """
 
 import sys

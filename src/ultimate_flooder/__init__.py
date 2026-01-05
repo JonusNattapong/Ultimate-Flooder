@@ -1,3 +1,3 @@
 """
-Ultimate Flooder CLI Package
+IP-HUNTER CLI Package
 """

@@ -1,3 +1,3 @@
 #!/bin/bash
-# Ultimate Flooder Launcher for Unix-like systems
+# IP-HUNTER Launcher for Unix-like systems
 python3 main.py "$@"

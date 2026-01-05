@@ -1,5 +1,5 @@
-# Security utilities for Ultimate Flooder
-# ฟังก์ชันความปลอดภัยสำหรับ Ultimate Flooder
+# Security utilities for IP-HUNTER
+# ฟังก์ชันความปลอดภัยสำหรับ IP-HUNTER
 
 import psutil  # นำเข้าโมดูล psutil สำหรับตรวจสอบทรัพยากรระบบ
 import threading  # นำเข้าโมดูล threading

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Setup script for Ultimate Flooder
+Setup script for IP-HUNTER
 """
 
 from setuptools import setup, find_packages

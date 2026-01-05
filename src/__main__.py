@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main entry point for Ultimate Flooder when run as a module
+Main entry point for IP-HUNTER when run as a module
 """
 
 import sys

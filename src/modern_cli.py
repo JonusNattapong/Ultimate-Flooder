@@ -1,8 +1,10 @@
-# Modern CLI Interface for Ultimate Flooder
-# อินเทอร์เฟซ CLI สมัยใหม่สำหรับ Ultimate Flooder
+# Modern CLI Interface for IP-HUNTER
+# อินเทอร์เฟซ CLI สมัยใหม่สำหรับ IP-HUNTER
 
 import os
 import time
+import threading
+import psutil
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -12,17 +14,154 @@ from rich.columns import Columns
 from rich.align import Align
 from rich.live import Live
 from rich.spinner import Spinner
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.style import Style
 from rich.layout import Layout
 from rich.padding import Padding
 
 from .config import BANNER, CONFIG
 from .classes import Menu, AttackDispatcher
-from .security import check_system_resources
+from .security import check_system_resources, active_threads, active_sockets
 
 # Initialize Rich Console
 console = Console()
+
+class AttackMonitor:
+    """Real-time attack monitoring system"""
+
+    def __init__(self, attack_name, target, duration, max_requests=0):
+        self.attack_name = attack_name
+        self.target = target
+        self.duration = duration
+        self.max_requests = max_requests
+        self.start_time = time.time()
+        self.packets_sent = 0
+        self.packets_failed = 0
+        self.bytes_sent = 0
+        self.active_connections = 0
+        self.monitoring = False
+        self.monitor_thread = None
+
+    def start_monitoring(self):
+        """Start the monitoring thread"""
+        self.monitoring = True
+        self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self.monitor_thread.start()
+
+    def stop_monitoring(self):
+        """Stop the monitoring thread"""
+        self.monitoring = False
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=1)
+
+    def update_stats(self, packets=0, bytes_sent=0, connections=0, failed=0):
+        """Update attack statistics"""
+        self.packets_sent += packets
+        self.bytes_sent += bytes_sent
+        self.active_connections = connections
+        self.packets_failed += failed
+
+    def _monitor_loop(self):
+        """Main monitoring loop"""
+        while self.monitoring:
+            time.sleep(1)  # Update every second
+
+    def get_stats_panel(self):
+        """Generate the statistics panel"""
+        elapsed = time.time() - self.start_time
+        
+        if self.max_requests > 0:
+            progress_percent = min(100, (self.packets_sent / self.max_requests) * 100)
+            time_info = f"{self.packets_sent:,}/{self.max_requests:,} reqs"
+        else:
+            progress_percent = min(100, (elapsed / self.duration) * 100)
+            time_info = f"{max(0, self.duration - int(elapsed))}s left"
+
+        # System stats
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
+            memory_percent = memory.percent
+            memory_used = memory.used / (1024**3)  # GB
+            memory_total = memory.total / (1024**3)  # GB
+        except:
+            cpu_percent = 0
+            memory_percent = 0
+            memory_used = 0
+            memory_total = 0
+
+        # Create layout
+        layout = Layout()
+        layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="stats", size=8),
+            Layout(name="system", size=6),
+            Layout(name="progress", size=4)
+        )
+
+        # Header
+        header_panel = Panel(
+            f"[bold cyan]🎯 {self.attack_name}[/bold cyan]\n"
+            f"[bold white]Target:[/bold white] {self.target}\n"
+            f"[bold white]Duration:[/bold white] {self.duration}s",
+            border_style="cyan",
+            padding=(0, 1)
+        )
+        layout["header"].update(header_panel)
+
+        # Attack Statistics
+        stats_table = Table(show_header=True, header_style="bold magenta", show_edge=False)
+        stats_table.add_column("Metric", style="cyan", width=15)
+        stats_table.add_column("Value", style="white", width=15)
+        stats_table.add_column("Rate/sec", style="green", width=10)
+
+        packets_per_sec = self.packets_sent / max(1, elapsed)
+        bytes_per_sec = self.bytes_sent / max(1, elapsed)
+        success_rate = (self.packets_sent / max(1, self.packets_sent + self.packets_failed)) * 100
+
+        stats_table.add_row("Packets Sent", f"{self.packets_sent:,}", f"{packets_per_sec:.0f}")
+        stats_table.add_row("Bytes Sent", f"{self.bytes_sent:,}", f"{bytes_per_sec:.0f}")
+        stats_table.add_row("Active Threads", str(active_threads), "")
+        stats_table.add_row("Active Sockets", str(active_sockets), "")
+        stats_table.add_row("Success Rate", f"{success_rate:.1f}%", "")
+
+        layout["stats"].update(Panel(stats_table, title="[bold magenta]📊 Attack Statistics[/bold magenta]", border_style="magenta", padding=(0, 1)))
+
+        # System Resources
+        system_table = Table(show_header=True, header_style="bold yellow", show_edge=False)
+        system_table.add_column("Resource", style="cyan", width=12)
+        system_table.add_column("Usage", style="white", width=15)
+        system_table.add_column("Status", style="green", width=10)
+
+        cpu_status = "🟢" if cpu_percent < 80 else "🔴"
+        mem_status = "🟢" if memory_percent < 80 else "🔴"
+
+        system_table.add_row("CPU", f"{cpu_percent:.1f}%", cpu_status)
+        system_table.add_row("Memory", f"{memory_used:.1f}/{memory_total:.1f}GB", mem_status)
+        system_table.add_row("Network", "Active", "🟢")
+
+        layout["system"].update(Panel(system_table, title="[bold yellow]🖥️  System Resources[/bold yellow]", border_style="yellow", padding=(0, 1)))
+
+        # Progress Bar
+        progress_bar = Progress(
+            TextColumn("[bold blue]Progress:[/bold blue]"),
+            BarColumn(bar_width=30, complete_style="green", finished_style="bold green"),
+            TaskProgressColumn(),
+            TextColumn(f"[bold white]{time_info}[/bold white]"),
+        )
+
+        task = progress_bar.add_task(
+            "Attack Progress",
+            total=100,
+            completed=progress_percent
+        )
+
+        layout["progress"].update(Panel(progress_bar, title="[bold blue]⏳ Attack Progress[/bold blue]", border_style="blue", padding=(0, 1)))
+
+        return layout
+
+# Global monitor instance
+current_monitor = None
 
 class ModernCLI:
     """Modern CLI interface using Rich library"""
@@ -33,7 +172,7 @@ class ModernCLI:
         banner_text = Text(BANNER, style="bold cyan")
         panel = Panel(
             Align.center(banner_text),
-            title="[bold red]Ultimate Flooder v2.0[/bold red]",
+            title="[bold red]IP-HUNTER v2.0[/bold red]",
             title_align="center",
             border_style="red",
             padding=(1, 2)
@@ -52,7 +191,7 @@ class ModernCLI:
     @staticmethod
     def display_menu():
         """Display the attack menu in a modern table format"""
-        table = Table(title="[bold magenta]🚀 Attack Selection Menu[/bold magenta]", show_header=True, header_style="bold blue")
+        table = Table(title="[bold magenta] Attack Selection Menu[/bold magenta]", show_header=True, header_style="bold blue")
         table.add_column("ID", style="cyan", justify="center", width=4)
         table.add_column("Attack Type", style="white", width=35)
         table.add_column("Layer", style="green", justify="center", width=6)
@@ -61,7 +200,7 @@ class ModernCLI:
         layer_mapping = {
             "1": "7", "2": "7", "3": "4", "4": "4", "5": "7", "6": "4",
             "7": "C2", "8": "7", "9": "4", "10": "4", "11": "4", "12": "7",
-            "13": "7", "14": "7", "15": "7", "16": "7"
+            "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan"
         }
 
         for key, attack in Menu.ATTACKS.items():
@@ -206,6 +345,21 @@ class ModernCLI:
             console.print("[bold red]❌ Invalid duration[/bold red]")
             return ModernCLI.get_attack_params(choice)
 
+        # Max Requests input
+        try:
+            max_requests = IntPrompt.ask(
+                "[bold yellow]Total Requests (0 for unlimited)[/bold yellow]",
+                default=0
+            )
+
+            if max_requests < 0:
+                console.print("[bold red]❌ Total requests cannot be negative[/bold red]")
+                return ModernCLI.get_attack_params(choice)
+
+        except ValueError:
+            console.print("[bold red]❌ Invalid request count[/bold red]")
+            return ModernCLI.get_attack_params(choice)
+
         # Proxy file input
         proxy_file = Prompt.ask(
             f"[bold yellow]Proxy file[/bold yellow] [dim]({CONFIG['PROXY_FILE']})[/dim]",
@@ -229,12 +383,15 @@ class ModernCLI:
             "port": port,
             "threads": threads,
             "duration": duration,
+            "max_requests": max_requests,
             "proxies": proxies
         }
 
     @staticmethod
     def display_attack_start(choice, params):
-        """Display attack start information"""
+        """Display attack start information with real-time monitoring"""
+        global current_monitor
+
         attack_info = Menu.ATTACKS.get(choice)
         if not attack_info:
             return
@@ -260,6 +417,15 @@ class ModernCLI:
                 console.print("[bold red]⚠️  Warning: System resources are running low![/bold red]")
                 time.sleep(1)
 
+        # Initialize monitor
+        current_monitor = AttackMonitor(
+            attack_info["name"], 
+            params["target"], 
+            params["duration"],
+            params.get("max_requests", 0)
+        )
+        current_monitor.start_monitoring()
+
         # Start attack animation
         with Progress(
             SpinnerColumn(),
@@ -273,7 +439,46 @@ class ModernCLI:
 
         console.print("[bold green]✅ Attack launched successfully![/bold green]")
         console.print("[bold yellow]💡 Press Ctrl+C to stop the attack[/bold yellow]")
+        console.print("[bold cyan]📊 Real-time monitoring active...[/bold cyan]")
         console.print()
+
+        # Start attack in background
+        from .classes import AttackDispatcher
+        attack_thread = threading.Thread(
+            target=AttackDispatcher.execute,
+            args=(choice, params, current_monitor),
+            daemon=True
+        )
+        attack_thread.start()
+
+        # Start real-time monitoring display
+        try:
+            with Live(current_monitor.get_stats_panel(), refresh_per_second=2, screen=True) as live:
+                start_time = time.time()
+                while time.time() - start_time < params["duration"]:
+                    # Check if max requests reached
+                    if params.get("max_requests", 0) > 0 and current_monitor.packets_sent >= params["max_requests"]:
+                        break
+                    
+                    live.update(current_monitor.get_stats_panel())
+                    time.sleep(0.5)
+
+                    # Check for keyboard interrupt
+                    try:
+                        import select
+                        import sys
+                        if select.select([sys.stdin], [], [], 0.0)[0]:
+                            if sys.stdin.read(1) == '\x03':  # Ctrl+C
+                                raise KeyboardInterrupt
+                    except:
+                        pass
+
+        except KeyboardInterrupt:
+            console.print("\n[bold yellow]⚠️  Attack interrupted by user[/bold yellow]")
+        finally:
+            if current_monitor:
+                current_monitor.stop_monitoring()
+                current_monitor = None
 
     @staticmethod
     def display_attack_complete():
@@ -302,7 +507,7 @@ class ModernCLI:
     def display_goodbye():
         """Display goodbye message"""
         panel = Panel(
-            "[bold cyan]👋 Thank you for using Ultimate Flooder![/bold cyan]\n"
+            "[bold cyan]👋 Thank you for using IP-HUNTER![/bold cyan]\n"
             "[dim]Remember: This tool is for educational purposes only[/dim]",
             border_style="cyan",
             padding=(1, 2)
@@ -330,7 +535,6 @@ class ModernCLI:
                     continue
 
                 ModernCLI.display_attack_start(choice, params)
-                AttackDispatcher.execute(choice, params)
                 ModernCLI.display_attack_complete()
 
             except KeyboardInterrupt:

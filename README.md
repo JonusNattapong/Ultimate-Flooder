@@ -1,4 +1,4 @@
-# Ultimate Flooder
+# IP-HUNTER
 
 A powerful and advanced DDoS (Distributed Denial of Service) tool written in Python, designed for educational and research purposes only.
 
@@ -24,6 +24,7 @@ A powerful and advanced DDoS (Distributed Denial of Service) tool written in Pyt
 - **Cloudflare Bypass Flood**: Advanced HTTP flooding with techniques to bypass Cloudflare protection
 - **Layer 4 SYN Flood**: TCP SYN packet flooding with IP spoofing (requires root)
 - **Layer 4 UDP Flood**: UDP packet flooding with random data (requires root)
+- **Port Scanner**: Multi-threaded tool to identify open ports and services with common port examples
 - Multi-threaded attacks for maximum impact
 - Proxy support for HTTP attacks
 - Customizable threads, duration, and target ports
@@ -61,7 +62,7 @@ pip install -e .
 
 ### Command Line Interface
 
-After installation, you can run Ultimate Flooder from anywhere:
+After installation, you can run IP-HUNTER from anywhere:
 
 ```bash
 ultimate-flooder
@@ -90,6 +91,19 @@ run.bat
 ```
 
 The codebase is organized into modular components for better maintainability:
+
+## Port Scanning Reference
+
+When using the built-in Port Scanner, here are some common ports to check:
+
+- **Web Services**: 80 (HTTP), 443 (HTTPS)
+- **DNS**: 53
+- **Game Servers**: 
+  - Minecraft: 25565
+  - FiveM / GTA: 30120
+  - SA-MP: 7777
+- **Database**: 3306 (MySQL), 5432 (PostgreSQL)
+- **Remote Access**: 22 (SSH), 3389 (RDP)
 
 ```
 Ultimate-Flooder/

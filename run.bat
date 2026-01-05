@@ -1,3 +1,3 @@
 @echo off
-REM Ultimate Flooder Launcher for Windows
+REM IP-HUNTER Launcher for Windows
 python main.py %*
