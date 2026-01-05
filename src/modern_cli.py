@@ -474,6 +474,11 @@ class ModernCLI:
             return
 
         attack_thread = threading.Thread(
+            target=AttackDispatcher.execute,
+            args=(choice, params, current_monitor),
+            daemon=True
+        )
+        attack_thread.start()
 
         # Start real-time monitoring display
         try:
