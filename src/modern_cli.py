@@ -209,7 +209,8 @@ class ModernCLI:
             "1": "7", "2": "7", "3": "4", "4": "4", "5": "7", "6": "4",
             "7": "C2", "8": "7", "9": "4", "10": "4", "11": "4", "12": "7",
             "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
-            "19": "CMD", "20": "Net", "21": "OSINT"
+            "19": "CMD", "20": "Net", "21": "OSINT", "22": "AI", "23": "Scout",
+            "24": "Cracker", "25": "OSINT"
         }
 
         # Dynamically add ID 19 if C2 is running
@@ -327,6 +328,34 @@ class ModernCLI:
                 "port": 0,
                 "proxies": []
             }
+
+        if choice == "22": # AI-Adaptive Smart Flood
+            panel = Panel("[bold cyan]AI-Adaptive Smart Flood[/bold cyan]\n[dim]Autonomous intensity adjustment based on server feedback.[/dim]", border_style="cyan")
+            console.print(panel)
+            target = Prompt.ask("[bold yellow]Target URL[/bold yellow]").strip()
+            threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=50)
+            duration = IntPrompt.ask("[bold yellow]Duration[/bold yellow]", default=60)
+            return {"target": target, "threads": threads, "duration": duration, "proxies": [], "port": 80}
+
+        if choice == "23": # Vulnerability Scout
+            panel = Panel("[bold cyan]Vulnerability Scout[/bold cyan]\n[dim]Rapid scan for sensitive files and misconfigurations.[/dim]", border_style="cyan")
+            console.print(panel)
+            target = Prompt.ask("[bold yellow]Target URL[/bold yellow]").strip()
+            return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "24": # Brute-Force Suite
+            panel = Panel("[bold cyan]Brute-Force Suite[/bold cyan]\n[dim]Trial matching common credentials for services.[/dim]", border_style="cyan")
+            console.print(panel)
+            target = Prompt.ask("[bold yellow]Target Host/IP[/bold yellow]").strip()
+            service = Prompt.ask("[bold yellow]Service (FTP/HTTP)[/bold yellow]", default="FTP").strip()
+            username = Prompt.ask("[bold yellow]Username[/bold yellow]", default="admin").strip()
+            return {"target": target, "service": service, "username": username, "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "25": # Domain OSINT
+            panel = Panel("[bold cyan]Domain OSINT Multi-Hunter[/bold cyan]\n[dim]Hunt subdomains and DNS intelligence.[/dim]", border_style="cyan")
+            console.print(panel)
+            target = Prompt.ask("[bold yellow]Domain (e.g. google.com)[/bold yellow]").strip()
+            return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "7":  # C2 Server
             panel = Panel(
@@ -631,6 +660,14 @@ class ModernCLI:
             table.add_row("Ports", params["port_text"])
         elif choice == "21":
             table.add_row("Task", "Deep OSINT Tracking")
+        elif choice == "22":
+            table.add_row("Mode", "AI-Adaptive (Smart)")
+        elif choice == "23":
+            table.add_row("Task", "Vulnerability Search")
+        elif choice == "24":
+            table.add_row("Service", f"{params['service']} Crack")
+        elif choice == "25":
+            table.add_row("Task", "Subdomain Hunting")
         else:
             table.add_row("Port", str(params["port"]))
 
@@ -652,7 +689,12 @@ class ModernCLI:
         console.print()
 
         # Custom UI tools (Synchronous execution)
-        if str(choice) in ["17", "20", "21"]:
+        if str(choice) in ["17", "20", "21", "23", "24", "25"]:
+            AttackDispatcher.execute(choice, params)
+            return
+
+        # Special handling for AI-Adaptive (Synchronous due to internal monitoring)
+        if str(choice) == "22":
             AttackDispatcher.execute(choice, params)
             return
 

