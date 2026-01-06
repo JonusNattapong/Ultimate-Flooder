@@ -171,7 +171,7 @@ class ModernCLI:
     def display_banner():
         """Display the top header panel"""
         subtitle = Panel(
-            "[bold yellow]Advanced DDoS Tool - Coded for Educational Purposes Only[/bold yellow]",
+            "[bold yellow]Advanced DDoS Tool v2.1.0 - Coded for Educational Purposes Only[/bold yellow]",
             border_style="blue",
             padding=(0, 1)
         )
@@ -219,7 +219,7 @@ class ModernCLI:
         grid.add_column(ratio=3, justify="center") # Banner column
         grid.add_row(table, Align.center(banner_text, vertical="middle"))
 
-        console.print(Panel(grid, title="[bold magenta] Attack Management Console v2.1.0 [/bold magenta]", border_style="bright_blue"))
+        console.print(Panel(grid, title="[bold magenta] Attack Management Console [/bold magenta]", border_style="bright_blue"))
         console.print()
 
         # Instructions
