@@ -169,34 +169,10 @@ class ModernCLI:
 
     @staticmethod
     def display_banner():
-        """Display the main application banner"""
-        # Header text
-        header = Align.center(
-            Text("IP-HUNTER v2.1.0", style="bold cyan")
-        )
-        console.print(header)
-
-        # Main info box
-        info_table = Table.grid(padding=(0, 2))
-        info_table.add_column(style="bold white")
-        info_table.add_column(style="dim white")
-        
-        info_table.add_row("Author:", "Ultimate-Flooder Team")
-        info_table.add_row("Version:", "2.1.0 (Stealth Edition)")
-        info_table.add_row("GitHub:", "https://github.com/Ultimate-Flooder/Ultimate-Flooder")
-        
-        panel = Panel(
-            Align.center(info_table),
-            title="[bold green]System Information[/bold green]",
-            border_style="green",
-            padding=(1, 2)
-        )
-        console.print(panel)
-
-        # Subtitle
+        """Display the top header panel"""
         subtitle = Panel(
             "[bold yellow]Advanced DDoS Tool - Coded for Educational Purposes Only[/bold yellow]",
-            border_style="yellow",
+            border_style="blue",
             padding=(0, 1)
         )
         console.print(subtitle)
@@ -204,12 +180,17 @@ class ModernCLI:
 
     @staticmethod
     def display_menu():
-        """Display the attack menu in a modern table format with ASCII side-by-side"""
-        table = Table(title="[bold magenta] Attack Selection Menu[/bold magenta]", show_header=True, header_style="bold blue")
+        """Display the attack menu and banner side-by-side"""
+        table = Table(
+            show_header=True,
+            header_style="bold blue",
+            border_style="blue",
+            expand=True
+        )
         table.add_column("ID", style="cyan", justify="center", width=4)
-        table.add_column("Attack Type", style="white", width=35)
+        table.add_column("Attack Type", style="white")
         table.add_column("Layer", style="green", justify="center", width=6)
-        table.add_column("Root Required", style="red", justify="center", width=12)
+        table.add_column("Root Needed", style="red", justify="center", width=12)
 
         layer_mapping = {
             "1": "7", "2": "7", "3": "4", "4": "4", "5": "7", "6": "4",
@@ -229,26 +210,25 @@ class ModernCLI:
                 f"[{root_style}]{root_needed}[/{root_style}]"
             )
 
-        # Create banner panel (the skull/image)
-        banner_panel = Panel(
-            Text(BANNER, style="bold red"),
-            border_style="red",
-            title="[bold yellow]ANONYMITY MODE[/bold yellow]",
-            subtitle="Secure Anti-Trace",
-            padding=(0, 1)
-        )
+        # Create banner art
+        banner_text = Text(BANNER, style="bold cyan")
+        
+        # Create side-by-side grid
+        grid = Table.grid(expand=True, padding=2)
+        grid.add_column(ratio=2) # Menu column
+        grid.add_column(ratio=3, justify="center") # Banner column
+        grid.add_row(table, Align.center(banner_text, vertical="middle"))
 
-        # Place table and banner side-by-side using Columns
-        menu_columns = Columns([table, banner_panel], align="left", expand=False)
-        console.print(menu_columns)
+        console.print(Panel(grid, title="[bold magenta] Attack Management Console v2.1.0 [/bold magenta]", border_style="bright_blue"))
         console.print()
 
         # Instructions
         instructions = Panel(
-            "[bold white]Choose an attack by entering the ID number[/bold white]\n"
-            "[dim]Type 'q', 'quit', or 'exit' to quit the program[/dim]",
+            Align.center(
+                "[bold white]Select an Attack ID number to proceed[/bold white] [dim]• Type 'q' to exit[/dim]"
+            ),
             border_style="blue",
-            padding=(1, 2)
+            padding=(0, 2)
         )
         console.print(instructions)
 
