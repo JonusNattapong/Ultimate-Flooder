@@ -101,8 +101,65 @@ IP-HUNTER includes built-in identity protection features to help maintain anonym
 - Ensure Tor listens on port 9050
 - Tool will detect and use existing Tor instance
 
-### Additional Protection Features:
-- **Randomized Headers**: Dynamic User-Agent and Referer rotation
-- **IP Spoofing**: Built-in spoofing for Layer 4 attacks
-- **Proxy Support**: Compatible with custom proxy lists
-- **No Logging**: Tool doesn't store sensitive connection data
+## ⚠️ Important Security Notice
+
+**NO ANONYMITY METHOD IS 100% FOOLPROOF!** While IP-HUNTER provides strong identity protection features, absolute anonymity cannot be guaranteed. Here are the limitations and additional security measures:
+
+### Tor Limitations:
+- **Entry/Exit Node Logs**: Tor entry nodes can see your real IP, exit nodes can see destination
+- **Timing Attacks**: Correlation of timing patterns can deanonymize users
+- **Malicious Nodes**: Compromised Tor nodes can monitor traffic
+- **Browser Fingerprinting**: Websites can fingerprint your browser even through Tor
+- **DNS Leaks**: DNS requests may bypass Tor if not configured properly
+
+### What IP-HUNTER Protects Against:
+✅ **Direct IP Exposure**: Your real IP is hidden from targets
+✅ **Basic Network Monitoring**: ISP-level traffic analysis is harder
+✅ **Simple Tracing**: Direct IP-to-identity correlation is prevented
+✅ **Header Analysis**: Randomized headers prevent basic fingerprinting
+
+### What IP-HUNTER Does NOT Protect Against:
+❌ **Advanced Forensics**: Law enforcement with court orders can subpoena Tor records
+❌ **Timing Correlation**: Sophisticated analysis of traffic patterns
+❌ **Physical Security**: Keyloggers, cameras, or compromised devices
+❌ **Social Engineering**: Human error or coercion
+❌ **Legal Consequences**: Using this tool illegally will still result in prosecution
+
+### Additional Security Recommendations:
+
+#### 1. **Use in Combination** (Defense in Depth):
+```bash
+# Use Tor + VPN together for better protection
+VPN → Tor → Target
+```
+- Connect to VPN first, then use Tor through VPN
+- Or use Tor over VPN for different protection layers
+
+#### 2. **System Hardening**:
+- Use Tails OS (amnesic live system)
+- Disable JavaScript in Tor Browser
+- Use NoScript extension
+- Avoid logging into personal accounts
+- Use encrypted DNS (DNSCrypt or DNS over HTTPS)
+
+#### 3. **Operational Security (OPSEC)**:
+- Never use real personal information
+- Avoid patterns that can be correlated
+- Use different Tor circuits for different targets
+- Don't mix anonymous and non-anonymous activities
+- Use bridges if Tor is blocked in your region
+
+#### 4. **Legal Awareness**:
+- **This tool is for EDUCATIONAL PURPOSES ONLY**
+- Unauthorized network attacks are illegal worldwide
+- Even with anonymity tools, intent and actions can be prosecuted
+- Always obtain explicit written permission before testing
+
+### Best Practice Workflow:
+1. **Research Target**: Ensure you have legal authorization
+2. **Setup Anonymity**: VPN → Tor → IP-HUNTER
+3. **Test Safely**: Use controlled environments
+4. **Clean Up**: Clear logs, restart systems
+5. **Document Everything**: Keep records of authorization
+
+**Remember: The best anonymity comes from not needing it in the first place. Always act ethically and legally.**
