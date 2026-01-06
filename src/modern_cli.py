@@ -21,14 +21,17 @@ from rich.style import Style
 from rich.layout import Layout
 from rich.padding import Padding
 
-from src.config import BANNER, CONFIG
-from src.classes import Menu, AttackDispatcher
+from src.config import BANNER, CONFIG, update_config_key
+from src.core.menu import Menu
+from src.core.dispatcher import AttackDispatcher
 from src import security
 from src.utils import (
-    load_file_lines, auto_start_tor_if_needed, stealth_mode_init, 
-    generate_stealth_headers, check_vpn_running, get_vpn_ip, 
-    create_proxy_chain, validate_proxy_chain, add_system_log, SYSTEM_LOGS
+    load_file_lines, auto_start_tor_if_needed, 
+    generate_stealth_headers, check_vpn_running, 
+    add_system_log, SYSTEM_LOGS, stealth_mode_init
 )
+from src.utils.network import get_vpn_ip
+from src.utils.system import cleanup_temp_files
 
 # Initialize Rich Console
 console = Console()
@@ -190,7 +193,6 @@ class ModernCLI:
         console.print()
 
     @staticmethod
-    @staticmethod
     def display_menu():
         """Returns the menu and dashboard layout content"""
         # Menu Table
@@ -211,7 +213,7 @@ class ModernCLI:
             "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
             "19": "CMD", "20": "Net", "21": "OSINT", "22": "AI", "23": "Scout",
             "24": "Cracker", "25": "OSINT", "26": "Proxy", "27": "WiFi",
-            "28": "Sniff", "29": "Exploit", "30": "OpSec"
+            "28": "Sniff", "29": "Exploit", "30": "OpSec", "31": "Vuln", "32": "Sniper"
         }
 
         # Dynamically add ID 19 if C2 is running
@@ -383,6 +385,35 @@ class ModernCLI:
             panel = Panel("[bold cyan]Identity Cloak (OpSec)[/bold cyan]\n[dim]Randomizes MAC address and machine hostname.[/dim]", border_style="cyan")
             console.print(panel)
             return {"target": "privacy", "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "31": # CVE Explorer
+            panel = Panel("[bold cyan]CVE Explorer[/bold cyan]\n[dim]Search public vulnerability databases (NVD/CIRCL) by keyword.[/dim]", border_style="cyan")
+            console.print(panel)
+            keyword = Prompt.ask("[bold yellow]Search Keyword (e.g. windows, apache, cisco)[/bold yellow]").strip()
+            return {"target": "CVE-Database", "keyword": keyword, "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "32": # Web Exposure Sniper
+            panel = Panel("[bold red]Web Exposure Sniper[/bold red]\n[dim]Active hunting for data leaks, sensitive files, and misconfigurations on a target website.[/dim]", border_style="red")
+            console.print(panel)
+            
+            # AI Key Management
+            api_key = CONFIG.get('OPENROUTER_API_KEY')
+            if not api_key:
+                console.print("[yellow]⚠️  OpenRouter API Key not found.[/yellow]")
+                api_key = Prompt.ask("[bold cyan]Enter OpenRouter API Key (to enable AI recon)[/bold cyan]").strip()
+                if api_key:
+                    CONFIG['OPENROUTER_API_KEY'] = api_key
+                    save = Prompt.ask("[yellow]Save this key permanently to config.py?[/yellow]", choices=["y", "n"], default="y")
+                    if save == "y":
+                        if update_config_key('OPENROUTER_API_KEY', api_key):
+                            console.print("[bold green]✅ API Key saved permanently.[/bold green]")
+                        else:
+                            console.print("[bold red]❌ Failed to save key to file.[/bold red]")
+                    else:
+                        console.print("[bold green]✅ API Key set for this session only.[/bold green]")
+            
+            target = Prompt.ask("[bold yellow]Target URL (e.g. target-web.com)[/bold yellow]").strip()
+            return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "7":  # C2 Server
             panel = Panel(

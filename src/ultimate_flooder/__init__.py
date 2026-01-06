@@ -1,3 +1,0 @@
-"""
-IP-HUNTER CLI Package
-"""

@@ -1,0 +1,12 @@
+AI_KEY|OPENAI_API_KEY|CRITICAL|OpenAI API Token
+AKIA[0-9A-Z]{16}|CRITICAL|AWS Access Key
+DB_PASSWORD|DATABASE_URL|MYSQL_ROOT|HIGH|DB Credentials
+sk_live_[0-9a-zA-Z]{24}|CRITICAL|Stripe Live Key
+PRIVATE KEY|BEGIN RSA|BEGIN OPENSSH|FATAL|Private Encryption Key
+firebaseio\.com|HIGH|Firebase DB URL
+amqp://|mongodb://|redis://|HIGH|Cloud Service URI
+S3_BUCKET|AWS_SECRET_ACCESS_KEY|CRITICAL|AWS Storage Keys
+GITHUB_TOKEN|GH_TOKEN|HIGH|GitHub Personal Token
+SLACK_WEBHOOK_URL|MEDIUM|Slack Incoming Webhook
+"password":\s*"[^"]+"|HIGH|Hardcoded JSON Password
+"(secret|token|key)":\s*"[^"]+"|MEDIUM|Generic Auth Secret

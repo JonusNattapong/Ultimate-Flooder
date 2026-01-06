@@ -14,15 +14,20 @@ SECURITY_LIMITS = {
     'check_interval': 5.0  # ช่วงเวลาตรวจสอบทรัพยากร (วินาที)
 }
 
-# Global counters  # ตัวนับทั่วโลก
-active_threads = 0  # จำนวนเธรดที่ทำงานอยู่
-active_sockets = 0  # จำนวน socket ที่ทำงานอยู่
-thread_lock = threading.Lock()  # ล็อกสำหรับ thread counter
-socket_lock = threading.Lock()  # ล็อกสำหรับ socket counter
+# Global controls
+stop_event = threading.Event()
 
 def check_system_resources():
-    """Check if system resources are within safe limits (Always returns True)"""
-    return True
+    """Check if system resources are within safe limits"""
+    try:
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        ram_usage = psutil.virtual_memory().percent
+        
+        if cpu_usage > SECURITY_LIMITS['max_cpu_percent'] or ram_usage > SECURITY_LIMITS['max_memory_percent']:
+            return False
+        return True
+    except:
+        return True
 
 def increment_thread_counter():
     """Increment active thread counter with safety check"""
@@ -49,31 +54,16 @@ def decrement_socket_counter():
         active_sockets = max(0, active_sockets - 1)
 
 def validate_target(target):
-    """Basic validation for target IP/URL"""
-    # การตรวจสอบพื้นฐานสำหรับเป้าหมาย IP/URL
-    if not target:
-        return False
-
-    # Check for basic IP format or URL format
-    # ตรวจสอบรูปแบบ IP พื้นฐานหรือรูปแบบ URL
+    """Robust validation for target IP or Domain/URL"""
+    if not target: return False
     import re
-    ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-    url_pattern = r'^https?://'
+    ip_pattern = r'^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+    domain_pattern = r'^([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}(/.*)?$'
+    url_pattern = r'^https?://([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}(/.*)?$'
 
-    if re.match(ip_pattern, target):
-        # Validate IP address ranges
-        # ตรวจสอบช่วงที่อยู่ IP
-        parts = target.split('.')
-        for part in parts:
-            if not 0 <= int(part) <= 255:
-                return False
+    if re.match(ip_pattern, target) or re.match(domain_pattern, target) or re.match(url_pattern, target):
         return True
-    elif re.match(url_pattern, target) or '.' in target:
-        # Basic URL validation
-        # การตรวจสอบ URL พื้นฐาน
-        return len(target) > 3
-    else:
-        return False
+    return False
 
 class ResourceMonitor:
     """Monitor system resources during attacks"""
@@ -104,7 +94,11 @@ class ResourceMonitor:
         while self.monitoring:
             try:
                 if not check_system_resources():
-                    print("Warning: System resources are running low!")
+                    from src.utils.logging import add_system_log
+                    add_system_log("[bold red]CRITICAL:[/] System resources exhausted! Stopping all attacks...")
+                    stop_event.set()
+                    self.monitoring = False
+                    break
                 time.sleep(SECURITY_LIMITS['check_interval'])
             except Exception as e:
                 print(f"Monitoring error: {e}")

