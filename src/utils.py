@@ -1,7 +1,7 @@
 import os  # นำเข้าโมดูล os สำหรับการทำงานกับระบบไฟล์
 import random  # นำเข้าโมดูล random สำหรับสุ่มค่า
 import ctypes  # นำเข้าโมดูล ctypes สำหรับเรียกใช้ Windows API
-from .config import USER_AGENTS, REFERERS  # นำเข้า User Agents และ Referers จาก config
+from src.config import USER_AGENTS, REFERERS  # นำเข้า User Agents และ Referers จาก config
 
 
 def get_random_headers():  # ฟังก์ชันสร้าง HTTP headers แบบสุ่ม

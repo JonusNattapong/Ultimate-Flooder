@@ -19,9 +19,10 @@ from rich.style import Style
 from rich.layout import Layout
 from rich.padding import Padding
 
-from .config import BANNER, CONFIG
-from .classes import Menu, AttackDispatcher
-from .security import check_system_resources, active_threads, active_sockets
+from src.config import BANNER, CONFIG
+from src.classes import Menu, AttackDispatcher
+from src import security
+from src.utils import load_file_lines
 
 # Initialize Rich Console
 console = Console()
@@ -121,8 +122,8 @@ class AttackMonitor:
 
         stats_table.add_row("Packets Sent", f"{self.packets_sent:,}", f"{packets_per_sec:.0f}")
         stats_table.add_row("Bytes Sent", f"{self.bytes_sent:,}", f"{bytes_per_sec:.0f}")
-        stats_table.add_row("Active Threads", str(active_threads), "")
-        stats_table.add_row("Active Sockets", str(active_sockets), "")
+        stats_table.add_row("Active Threads", str(security.active_threads), "")
+        stats_table.add_row("Active Sockets", str(security.active_sockets), "")
         stats_table.add_row("Success Rate", f"{success_rate:.1f}%", "")
 
         layout["stats"].update(Panel(stats_table, title="[bold magenta]📊 Attack Statistics[/bold magenta]", border_style="magenta", padding=(0, 1)))
@@ -359,8 +360,7 @@ class ModernCLI:
             console.print("[bold red]❌ Target cannot be empty![/bold red]")
             return ModernCLI.get_attack_params(choice)
 
-        from .security import validate_target
-        if not validate_target(target):
+        if not security.validate_target(target):
             console.print("[bold red]❌ Invalid target format![/bold red]")
             return ModernCLI.get_attack_params(choice)
 
@@ -389,7 +389,6 @@ class ModernCLI:
             max_requests = IntPrompt.ask("[bold yellow]Total Requests (0 for unlimited)[/bold yellow]", default=0)
             proxy_file = Prompt.ask(f"[bold yellow]Proxy file[/bold yellow] [dim]({CONFIG['PROXY_FILE']})[/dim]", default="").strip()
             if proxy_file:
-                from .utils import load_file_lines
                 if os.path.isfile(proxy_file):
                     proxies = load_file_lines(proxy_file)
                     console.print(f"[green]✅ Loaded {len(proxies)} proxies[/green]")
@@ -434,11 +433,10 @@ class ModernCLI:
         console.print(table)
         console.print()
 
-        # System check
-        with console.status("[bold green]Checking system resources...[/bold green]", spinner="dots"):
-            if not check_system_resources():
-                console.print("[bold red]⚠️  Warning: System resources are running low![/bold red]")
-                time.sleep(1)
+        # Port scanner handling (synchronous and custom UI)
+        if str(choice) == "17":
+            AttackDispatcher.execute(choice, params)
+            return
 
         # Initialize monitor
         current_monitor = AttackMonitor(
@@ -466,13 +464,6 @@ class ModernCLI:
         console.print()
 
         # Start attack in background
-        from .classes import AttackDispatcher
-        
-        if choice == "17":
-            # Port scanner is synchronous or handles its own threads
-            AttackDispatcher.execute(choice, params)
-            return
-
         attack_thread = threading.Thread(
             target=AttackDispatcher.execute,
             args=(choice, params, current_monitor),
@@ -564,7 +555,10 @@ class ModernCLI:
                     continue
 
                 ModernCLI.display_attack_start(choice, params)
-                ModernCLI.display_attack_complete()
+                
+                # Only show generic completion for flooders (ID 17 handles its own)
+                if str(choice) != "17":
+                    ModernCLI.display_attack_complete()
 
             except KeyboardInterrupt:
                 console.print("\n[bold yellow]⚠️  Attack interrupted by user[/bold yellow]")

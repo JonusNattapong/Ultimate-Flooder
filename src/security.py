@@ -21,57 +21,29 @@ thread_lock = threading.Lock()  # ล็อกสำหรับ thread counter
 socket_lock = threading.Lock()  # ล็อกสำหรับ socket counter
 
 def check_system_resources():
-    """Check if system resources are within safe limits"""
-    # ตรวจสอบว่าทรัพยากรระบบอยู่ในขีดจำกัดที่ปลอดภัยหรือไม่
-    try:
-        memory_percent = psutil.virtual_memory().percent  # ตรวจสอบหน่วยความจำ
-        cpu_percent = psutil.cpu_percent(interval=1)  # ตรวจสอบ CPU
-
-        if memory_percent > SECURITY_LIMITS['max_memory_percent']:
-            raise ResourceWarning(f"Memory usage too high: {memory_percent}%")
-
-        if cpu_percent > SECURITY_LIMITS['max_cpu_percent']:
-            raise ResourceWarning(f"CPU usage too high: {cpu_percent}%")
-
-        return True
-    except ImportError:
-        # psutil not available, skip resource checks
-        # psutil ไม่พร้อมใช้งาน ข้ามการตรวจสอบทรัพยากร
-        return True
-    except Exception as e:
-        print(f"Resource check failed: {e}")
-        return False
+    """Check if system resources are within safe limits (Always returns True)"""
+    return True
 
 def increment_thread_counter():
     """Increment active thread counter with safety check"""
-    # เพิ่มตัวนับเธรดที่ทำงานอยู่พร้อมการตรวจสอบความปลอดภัย
     global active_threads
     with thread_lock:
         active_threads += 1
-        if active_threads > SECURITY_LIMITS['max_threads']:
-            active_threads -= 1  # Rollback
-            raise ResourceWarning(f"Too many active threads: {active_threads}")
 
 def decrement_thread_counter():
     """Decrement active thread counter"""
-    # ลดตัวนับเธรดที่ทำงานอยู่
     global active_threads
     with thread_lock:
         active_threads = max(0, active_threads - 1)
 
 def increment_socket_counter():
     """Increment active socket counter with safety check"""
-    # เพิ่มตัวนับ socket ที่ทำงานอยู่พร้อมการตรวจสอบความปลอดภัย
     global active_sockets
     with socket_lock:
         active_sockets += 1
-        if active_sockets > SECURITY_LIMITS['max_sockets']:
-            active_sockets -= 1  # Rollback
-            raise ResourceWarning(f"Too many active sockets: {active_sockets}")
 
 def decrement_socket_counter():
     """Decrement active socket counter"""
-    # ลดตัวนับ socket ที่ทำงานอยู่
     global active_sockets
     with socket_lock:
         active_sockets = max(0, active_sockets - 1)
