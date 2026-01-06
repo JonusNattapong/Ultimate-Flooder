@@ -72,13 +72,3 @@ You can launch the tool using the following methods:
 ```bash
 python3 main.py
 ```
-
-## 🔍 Port Scanning Reference
-
-The built-in Port Scanner (ID 17) includes a database for identifying common services:
-
-- **Web**: 80 (HTTP), 443 (HTTPS), 8080 (Proxy)
-- **Games**: 25565 (Minecraft), 30120 (FiveM/GTA), 7777 (SA-MP)
-- **Databases**: 3306 (MySQL), 5432 (PostgreSQL), 27017 (MongoDB)
-- **Remote Access**: 22 (SSH), 3389 (RDP), 5900 (VNC)
-- **Infrastructure**: 53 (DNS), 161 (SNMP), 389 (LDAP)
