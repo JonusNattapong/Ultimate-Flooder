@@ -169,13 +169,26 @@ class ModernCLI:
 
     @staticmethod
     def display_banner():
-        """Display the ASCII banner with colors"""
-        banner_text = Text(BANNER, style="bold cyan")
+        """Display the main application banner"""
+        # Header text
+        header = Align.center(
+            Text("IP-HUNTER v2.1.0", style="bold cyan")
+        )
+        console.print(header)
+
+        # Main info box
+        info_table = Table.grid(padding=(0, 2))
+        info_table.add_column(style="bold white")
+        info_table.add_column(style="dim white")
+        
+        info_table.add_row("Author:", "Ultimate-Flooder Team")
+        info_table.add_row("Version:", "2.1.0 (Stealth Edition)")
+        info_table.add_row("GitHub:", "https://github.com/Ultimate-Flooder/Ultimate-Flooder")
+        
         panel = Panel(
-            Align.center(banner_text),
-            title="[bold red]IP-HUNTER v2.1.0[/bold red]",
-            title_align="center",
-            border_style="red",
+            Align.center(info_table),
+            title="[bold green]System Information[/bold green]",
+            border_style="green",
             padding=(1, 2)
         )
         console.print(panel)
@@ -191,7 +204,7 @@ class ModernCLI:
 
     @staticmethod
     def display_menu():
-        """Display the attack menu in a modern table format"""
+        """Display the attack menu in a modern table format with ASCII side-by-side"""
         table = Table(title="[bold magenta] Attack Selection Menu[/bold magenta]", show_header=True, header_style="bold blue")
         table.add_column("ID", style="cyan", justify="center", width=4)
         table.add_column("Attack Type", style="white", width=35)
@@ -216,7 +229,18 @@ class ModernCLI:
                 f"[{root_style}]{root_needed}[/{root_style}]"
             )
 
-        console.print(table)
+        # Create banner panel (the skull/image)
+        banner_panel = Panel(
+            Text(BANNER, style="bold red"),
+            border_style="red",
+            title="[bold yellow]ANONYMITY MODE[/bold yellow]",
+            subtitle="Secure Anti-Trace",
+            padding=(0, 1)
+        )
+
+        # Place table and banner side-by-side using Columns
+        menu_columns = Columns([table, banner_panel], align="left", expand=False)
+        console.print(menu_columns)
         console.print()
 
         # Instructions
