@@ -22,7 +22,7 @@ from rich.padding import Padding
 from src.config import BANNER, CONFIG
 from src.classes import Menu, AttackDispatcher
 from src import security
-from src.utils import load_file_lines, auto_start_tor_if_needed
+from src.utils import load_file_lines, auto_start_tor_if_needed, stealth_mode_init, generate_stealth_headers
 
 # Initialize Rich Console
 console = Console()
@@ -404,6 +404,16 @@ class ModernCLI:
                     console.print(f"[red]❌ {tor_message}[/red]")
                     console.print("[yellow]⚠️  Continuing without Tor...[/yellow]")
                     use_tor = False
+            
+            stealth_mode = Prompt.ask("[bold yellow]Enable stealth mode (advanced anti-trace)? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            if stealth_mode:
+                console.print("[cyan]🛡️  Initializing stealth mode...[/cyan]")
+                cleanup_success, cleanup_msg = stealth_mode_init()
+                if cleanup_success:
+                    console.print(f"[green]✅ {cleanup_msg}[/green]")
+                else:
+                    console.print(f"[red]❌ {cleanup_msg}[/red]")
+                console.print("[green]✅ Stealth mode activated[/green]")
 
         return {
             "target": target,
@@ -412,7 +422,8 @@ class ModernCLI:
             "duration": duration,
             "max_requests": max_requests,
             "proxies": proxies,
-            "use_tor": use_tor
+            "use_tor": use_tor,
+            "stealth_mode": stealth_mode
         }
 
     @staticmethod
@@ -442,6 +453,10 @@ class ModernCLI:
         if choice != "17":
             table.add_row("Duration", f"{params['duration']}s")
             table.add_row("Proxies", str(len(params["proxies"])))
+            if params.get("use_tor"):
+                table.add_row("Tor", "Enabled")
+            if params.get("stealth_mode"):
+                table.add_row("Stealth Mode", "Active")
 
         console.print(table)
         console.print()

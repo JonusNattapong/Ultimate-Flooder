@@ -10,7 +10,14 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'PROXY_FILE': 'proxy.txt',  # ชื่อไฟล์ที่เก็บรายการพร็อกซี
     'TOR_PROXY': 'socks5://127.0.0.1:9050',  # Tor SOCKS proxy สำหรับปกป้องตัวตน
     'TOR_AUTO_START': True,  # Auto-start Tor ถ้าเลือกใช้ Tor แต่ยังไม่รัน
-    'TOR_PORT': 9050  # พอร์ตที่ Tor ใช้
+    'TOR_PORT': 9050,  # พอร์ตที่ Tor ใช้
+    'TOR_BRIDGES': [],  # Tor bridges สำหรับ bypass censorship
+    'VPN_AUTO_START': False,  # Auto-start VPN (ยังไม่ implement)
+    'VPN_CONFIG_PATH': '',  # Path ไปยัง VPN config
+    'PROXY_CHAIN_ENABLED': False,  # ใช้ proxy chain
+    'PROXY_CHAIN_LIST': [],  # ลิสต์ proxy สำหรับ chain
+    'STEALTH_MODE': False,  # โหมด stealth ที่เพิ่ม randomization
+    'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
 }
 
 # แบนเนอร์ ASCII (ตามที่ผู้ใช้ส่งเข้ามา)  # คอมเมนต์ภาษาไทยอธิบายแบนเนอร์

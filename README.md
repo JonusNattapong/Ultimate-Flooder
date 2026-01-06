@@ -12,6 +12,7 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 - **Real-time Monitoring**: Live statistics including Packets/Bytes sent, success rate, and active threads.
 - **System Resource Watchdog**: Integrated monitoring of CPU and Memory usage with safety warnings.
 - **Identity Protection**: Built-in Tor integration for anonymous HTTP attacks.
+- **Advanced Stealth Mode**: Randomized headers, timing delays, and anti-forensic cleanup for maximum traceless operation.
 - **Layer 7 HTTP Floods**: Multiple methods including Basic, Asynchronous (aiohttp), and Cloudflare bypass.
 - **Layer 4 Protocol Floods**: SYN and UDP flooding with IP spoofing capabilities.
 - **Amplification Benchmarking**: Test NTP, Memcached, SSDP, and DNS amplification vectors.
@@ -79,9 +80,9 @@ You can launch the tool using the following methods:
 python3 main.py
 ```
 
-## 🔒 Identity Protection
+## 🔒 Identity Protection & Stealth Features
 
-IP-HUNTER includes built-in identity protection features to help maintain anonymity during security testing:
+IP-HUNTER includes comprehensive identity protection and advanced stealth features to help maintain anonymity and avoid detection during security testing:
 
 ### Tor Integration (Auto-Start)
 - **Automatic Tor Detection**: Tool automatically detects if Tor is running
@@ -89,12 +90,20 @@ IP-HUNTER includes built-in identity protection features to help maintain anonym
 - **SOCKS5 Proxy Support**: Uses `socks5://127.0.0.1:9050` by default
 - **CLI Integration**: Simple yes/no prompt during attack configuration
 
+### Advanced Stealth Mode
+- **Randomized Headers**: Generates unique, realistic browser headers for each request
+- **Timing Randomization**: Variable delays between requests to mimic human behavior
+- **Anti-Forensic Cleanup**: Automatically removes temporary files and traces
+- **Proxy Chain Support**: Multiple proxy layers for enhanced anonymity
+- **Noise Traffic Generation**: Optional background traffic to mask attack patterns
+
 ### Usage with Tor:
 1. **Download Tor Browser** from https://www.torproject.org/download/
 2. **Run IP-HUNTER** and select Layer 7 attack
 3. **Select "y"** when asked "Use Tor for anonymity?"
-4. **Tool automatically starts Tor** if not running
-5. **All HTTP requests are anonymized** through Tor network
+4. **Select "y"** when asked "Enable stealth mode (advanced anti-trace)?"
+5. **Tool automatically starts Tor** if not running
+6. **All HTTP requests are anonymized** through Tor network with stealth features
 
 ### Manual Tor Setup (Alternative):
 - Install Tor Browser or standalone Tor

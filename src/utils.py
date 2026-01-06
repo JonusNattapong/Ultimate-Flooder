@@ -115,7 +115,7 @@ def find_tor_executable():  # ฟังก์ชันหาไฟล์ tor.exe
     return None  # คืนค่า None ถ้าไม่พบ
 
 
-def start_tor(tor_path=None, port=9050):  # ฟังก์ชันรัน Tor
+def start_tor(tor_path=None, port=9050, bridges=None):  # ฟังก์ชันรัน Tor
     """Start Tor process"""  # ของฟังก์ชัน
     import subprocess  # นำเข้าโมดูล subprocess
     import time  # นำเข้าโมดูล time
@@ -127,11 +127,14 @@ def start_tor(tor_path=None, port=9050):  # ฟังก์ชันรัน To
         return False, "Tor executable not found"  # คืนค่าผลลัพธ์
     
     try:  # ลองรัน Tor
-        # Create torrc content for minimal config  # สร้าง config ขั้นต่ำ
-        torrc_content = f"""# Minimal Tor configuration for IP-HUNTER
+        # Create torrc content  # สร้าง config
+        if bridges:  # ถ้ามี bridges
+            torrc_content = create_torrc_with_bridges(bridges)  # สร้าง config กับ bridges
+        else:  # ถ้าไม่มี bridges
+            torrc_content = f"""# Minimal Tor configuration for IP-HUNTER
 SocksPort {port}
 ExitPolicy reject *:*
-"""  # config ที่ reject all exit และใช้ socks port ที่กำหนด
+"""  # config ขั้นต่ำ
         
         # Write torrc to temp file  # เขียน config ไปยังไฟล์ temp
         import tempfile  # นำเข้าโมดูล tempfile
@@ -147,8 +150,9 @@ ExitPolicy reject *:*
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0  # ซ่อนหน้าต่างบน Windows
         )
         
-        # Wait for Tor to start (up to 30 seconds)  # รอ Tor เริ่มทำงาน (สูงสุด 30 วินาที)
-        for i in range(30):  # วนลูป 30 ครั้ง
+        # Wait for Tor to start (up to 60 seconds with bridges)  # รอ Tor เริ่มทำงาน (สูงสุด 60 วินาทีถ้ามี bridges)
+        wait_time = 60 if bridges else 30  # ตั้งเวลารอ
+        for i in range(wait_time):  # วนลูปตามเวลารอ
             if check_tor_running(port):  # ตรวจสอบว่า Tor รันแล้ว
                 return True, f"Tor started successfully on port {port}"  # คืนค่าผลลัพธ์
             time.sleep(1)  # รอ 1 วินาที
@@ -163,7 +167,7 @@ ExitPolicy reject *:*
         except:  # ถ้าลบไม่ได้
             pass
         
-        return False, "Tor failed to start within 30 seconds"  # คืนค่าผลลัพธ์
+        return False, f"Tor failed to start within {wait_time} seconds"  # คืนค่าผลลัพธ์
     
     except Exception as e:  # จัดการข้อผิดพลาด
         return False, f"Error starting Tor: {str(e)}"  # คืนค่าผลลัพธ์
@@ -177,3 +181,135 @@ def auto_start_tor_if_needed(port=9050):  # ฟังก์ชัน auto-start 
     # Try to start Tor  # พยายามรัน Tor
     success, message = start_tor(port=port)  # เรียกฟังก์ชัน start_tor
     return success, message  # คืนค่าผลลัพธ์
+
+
+# Stealth and Anti-Trace Functions  # ฟังก์ชันสำหรับ stealth และป้องกันการ trace
+def randomize_timing(base_delay=0.1, max_delay=2.0):  # ฟังก์ชัน randomize timing
+    """Add random delays to prevent timing analysis"""  # ของฟังก์ชัน
+    import time  # นำเข้าโมดูล time
+    import random  # นำเข้าโมดูล random
+    
+    delay = random.uniform(base_delay, max_delay)  # สุ่ม delay
+    time.sleep(delay)  # รอตาม delay ที่สุ่ม
+
+
+def generate_stealth_headers():  # ฟังก์ชันสร้าง headers แบบ stealth
+    """Generate advanced stealth headers to avoid fingerprinting"""  # ของฟังก์ชัน
+    import random  # นำเข้าโมดูล random
+    
+    # Base headers  # headers พื้นฐาน
+    headers = {  # พจนานุกรม headers
+        "User-Agent": random.choice(USER_AGENTS),  # User Agent แบบสุ่ม
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",  # Accept แบบสมจริง
+        "Accept-Language": "en-US,en;q=0.9",  # ภาษาที่ยอมรับ
+        "Accept-Encoding": "gzip, deflate, br",  # การเข้ารหัสที่ยอมรับ
+        "DNT": "1",  # Do Not Track
+        "Connection": "keep-alive",  # การเชื่อมต่อ
+        "Upgrade-Insecure-Requests": "1",  # อัปเกรดเป็น HTTPS
+        "Sec-Fetch-Dest": "document",  # Security headers
+        "Sec-Fetch-Mode": "navigate",  # Security headers
+        "Sec-Fetch-Site": "none",  # Security headers
+        "Sec-Fetch-User": "?1",  # Security headers
+        "Cache-Control": "max-age=0",  # ไม่ใช้ cache
+        "Referer": random.choice(REFERERS) if random.random() > 0.3 else "",  # Referer แบบสุ่ม (บางครั้งไม่มี)
+    }
+    
+    # Add random additional headers to vary fingerprint  # เพิ่ม headers เพิ่มเติมแบบสุ่ม
+    optional_headers = {  # headers ที่อาจเพิ่ม
+        "X-Requested-With": "XMLHttpRequest",
+        "X-Forwarded-For": f"{random.randint(1,255)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(0,255)}",
+        "X-Real-IP": f"{random.randint(1,255)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(0,255)}",
+        "CF-RAY": f"{random.randint(1000000000000000,9999999999999999)}-{random.choice(['CDG', 'FRA', 'LHR', 'AMS'])}",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-Host": random.choice(["example.com", "google.com", "cloudflare.com"]),
+    }
+    
+    # Add 1-3 random optional headers  # เพิ่ม headers เพิ่มเติม 1-3 ตัวแบบสุ่ม
+    for header in random.sample(list(optional_headers.keys()), random.randint(1, 3)):  # สุ่มเลือก headers
+        headers[header] = optional_headers[header]  # เพิ่มเข้าไป
+    
+    return headers  # คืนค่า headers
+
+
+def setup_proxy_chain(proxy_list):  # ฟังก์ชันตั้งค่า proxy chain
+    """Setup a chain of proxies for maximum anonymity"""  # ของฟังก์ชัน
+    # This is a simplified implementation  # implementation แบบง่าย
+    # In practice, would need more sophisticated proxy chaining  # ในทางปฏิบัติต้องซับซ้อนกว่านี้
+    if not proxy_list or len(proxy_list) < 2:  # ถ้า proxy น้อยกว่า 2
+        return None  # คืนค่า None
+    
+    # For now, just return the first proxy  # ตอนนี้คืน proxy แรก
+    # Advanced implementation would chain them properly  # implementation จริงต้อง chain อย่างถูกต้อง
+    return proxy_list[0]  # คืนค่า proxy แรก
+
+
+def cleanup_temp_files():  # ฟังก์ชัน cleanup temp files
+    """Clean up temporary files and logs that might contain traces"""  # ของฟังก์ชัน
+    import tempfile  # นำเข้าโมดูล tempfile
+    import os  # นำเข้าโมดูล os
+    import glob  # นำเข้าโมดูล glob
+    
+    try:  # ลอง cleanup
+        # Clean temp directory  # ล้าง temp directory
+        temp_dir = tempfile.gettempdir()  # ได้ temp directory
+        temp_files = glob.glob(os.path.join(temp_dir, "ip-hunter-*"))  # หาไฟล์ที่ขึ้นต้นด้วย ip-hunter-
+        
+        for file_path in temp_files:  # วนลูปไฟล์
+            try:  # ลองลบไฟล์
+                os.remove(file_path)  # ลบไฟล์
+            except:  # ถ้าลบไม่ได้
+                pass  # ข้ามไป
+        
+        return True, f"Cleaned {len(temp_files)} temp files"  # คืนค่าผลลัพธ์
+    
+    except Exception as e:  # จัดการข้อผิดพลาด
+        return False, f"Cleanup failed: {str(e)}"  # คืนค่าผลลัพธ์
+
+
+def generate_noise_traffic(target_url, num_requests=5):  # ฟังก์ชันสร้าง noise traffic
+    """Generate noise traffic to obscure real attacks"""  # ของฟังก์ชัน
+    import requests  # นำเข้าโมดูล requests
+    
+    noise_urls = [  # URLs สำหรับสร้าง noise
+        "https://httpbin.org/get",
+        "https://api.ipify.org",
+        "https://checkip.amazonaws.com",
+        "https://icanhazip.com",
+        "https://ipinfo.io/ip"
+    ]
+    
+    for i in range(num_requests):  # วนลูปตามจำนวน requests
+        try:  # ลองส่ง request
+            noise_url = random.choice(noise_urls)  # สุ่มเลือก URL
+            headers = generate_stealth_headers()  # สร้าง headers แบบ stealth
+            requests.get(noise_url, headers=headers, timeout=5)  # ส่ง GET request
+            randomize_timing(0.5, 2.0)  # รอแบบสุ่ม
+        except:  # ถ้าเกิดข้อผิดพลาด
+            pass  # ข้ามไป
+
+
+def create_torrc_with_bridges(bridges_list):  # ฟังก์ชันสร้าง torrc กับ bridges
+    """Create Tor configuration with bridges for censorship resistance"""  # ของฟังก์ชัน
+    if not bridges_list:  # ถ้าไม่มี bridges
+        return ""  # คืนค่าว่าง
+    
+    bridges_config = "\n".join([f"Bridge {bridge}" for bridge in bridges_list])  # สร้าง config bridges
+    
+    torrc = f"""# Tor configuration with bridges for anti-censorship
+UseBridges 1
+{bridges_config}
+ExitPolicy reject *:*
+"""  # config พื้นฐานกับ bridges
+    
+    return torrc  # คืนค่า config
+
+
+def stealth_mode_init():  # ฟังก์ชันเริ่มต้น stealth mode
+    """Initialize stealth mode with anti-trace measures"""  # ของฟังก์ชัน
+    # Clean temp files  # ล้าง temp files
+    cleanup_success, cleanup_msg = cleanup_temp_files()  # เรียกฟังก์ชัน cleanup
+    
+    # Generate initial noise  # สร้าง noise เริ่มต้น
+    generate_noise_traffic(num_requests=3)  # สร้าง noise traffic
+    
+    return cleanup_success, cleanup_msg  # คืนค่าผลลัพธ์
