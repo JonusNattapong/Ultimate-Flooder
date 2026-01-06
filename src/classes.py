@@ -177,7 +177,12 @@ class Menu:  # คลาสสำหรับระบบเมนู
         "22": {"name": "AI-Adaptive Smart Flood", "func": "adaptive_flood", "needs_root": False},
         "23": {"name": "Vulnerability Scout", "func": "vulnerability_scout", "needs_root": False},
         "24": {"name": "Brute-Force Suite", "func": "brute_force_suite", "needs_root": False},
-        "25": {"name": "Domain OSINT Hunter", "func": "domain_osint", "needs_root": False}
+        "25": {"name": "Domain OSINT Hunter", "func": "domain_osint", "needs_root": False},
+        "26": {"name": "Proxy Auto-Pilot", "func": "proxy_autopilot", "needs_root": False},
+        "27": {"name": "WiFi Ghost Recon", "func": "wifi_ghost", "needs_root": True},
+        "28": {"name": "Packet Insight Sniffer", "func": "packet_insight", "needs_root": True},
+        "29": {"name": "Payload Laboratory", "func": "payload_lab", "needs_root": False},
+        "30": {"name": "Identity Cloak Mode", "func": "identity_cloak", "needs_root": True}
     }
 
     @staticmethod  # decorator สำหรับเมธอด static
@@ -387,3 +392,23 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
         elif choice == "25": # Domain OSINT
             from attacks import domain_osint
             domain_osint(target)
+
+        elif choice == "26": # Proxy Autopilot
+            from attacks import proxy_autopilot
+            proxy_autopilot()
+
+        elif choice == "27": # WiFi Ghost
+            from attacks import wifi_ghost
+            wifi_ghost()
+
+        elif choice == "28": # Packet Insight
+            from attacks import packet_insight
+            packet_insight(params.get("duration", 10))
+
+        elif choice == "29": # Payload Lab
+            from attacks import payload_lab
+            payload_lab()
+
+        elif choice == "30": # Identity Cloak
+            from attacks import identity_cloak
+            identity_cloak()

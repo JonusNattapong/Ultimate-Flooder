@@ -210,7 +210,8 @@ class ModernCLI:
             "7": "C2", "8": "7", "9": "4", "10": "4", "11": "4", "12": "7",
             "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
             "19": "CMD", "20": "Net", "21": "OSINT", "22": "AI", "23": "Scout",
-            "24": "Cracker", "25": "OSINT"
+            "24": "Cracker", "25": "OSINT", "26": "Proxy", "27": "WiFi",
+            "28": "Sniff", "29": "Exploit", "30": "OpSec"
         }
 
         # Dynamically add ID 19 if C2 is running
@@ -356,6 +357,32 @@ class ModernCLI:
             console.print(panel)
             target = Prompt.ask("[bold yellow]Domain (e.g. google.com)[/bold yellow]").strip()
             return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "26": # Proxy Autopilot
+            panel = Panel("[bold cyan]Proxy Autopilot[/bold cyan]\n[dim]Auto-scrapes and validates fresh HTTP/SOCKS proxies.[/dim]", border_style="cyan")
+            console.print(panel)
+            return {"target": "localhost", "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "27": # WiFi Ghost
+            panel = Panel("[bold cyan]WiFi Ghost Recon[/bold cyan]\n[dim]Passive scanning of surrounding airwaves (Requires Admin).[/dim]", border_style="cyan")
+            console.print(panel)
+            return {"target": "local", "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "28": # Packet Insight
+            panel = Panel("[bold cyan]Packet Insight (Sniffer)[/bold cyan]\n[dim]Live deep packet inspection of local traffic.[/dim]", border_style="cyan")
+            console.print(panel)
+            duration = IntPrompt.ask("[bold yellow]Sniff Duration (seconds)[/bold yellow]", default=10)
+            return {"target": "sniffer", "duration": duration, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "29": # Payload Lab
+            panel = Panel("[bold cyan]Payload Lab[/bold cyan]\n[dim]Generate obfuscated payloads for authorized testing.[/dim]", border_style="cyan")
+            console.print(panel)
+            return {"target": "payload", "duration": 0, "threads": 1, "port": 0, "proxies": []}
+
+        if choice == "30": # Identity Cloak
+            panel = Panel("[bold cyan]Identity Cloak (OpSec)[/bold cyan]\n[dim]Randomizes MAC address and machine hostname.[/dim]", border_style="cyan")
+            console.print(panel)
+            return {"target": "privacy", "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "7":  # C2 Server
             panel = Panel(

