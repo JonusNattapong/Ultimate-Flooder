@@ -83,16 +83,23 @@ python3 main.py
 
 IP-HUNTER includes built-in identity protection features to help maintain anonymity during security testing:
 
-### Tor Integration
-- **Automatic Tor Routing**: Route all HTTP attacks through Tor network
+### Tor Integration (Auto-Start)
+- **Automatic Tor Detection**: Tool automatically detects if Tor is running
+- **Auto-Start Tor**: Automatically starts Tor service if not running (when enabled)
 - **SOCKS5 Proxy Support**: Uses `socks5://127.0.0.1:9050` by default
 - **CLI Integration**: Simple yes/no prompt during attack configuration
 
 ### Usage with Tor:
-1. Install and run Tor Browser or Tor service
-2. Ensure Tor is listening on port 9050
-3. When configuring Layer 7 attacks, select "y" for Tor usage
-4. All HTTP requests will be anonymized through multiple Tor nodes
+1. **Download Tor Browser** from https://www.torproject.org/download/
+2. **Run IP-HUNTER** and select Layer 7 attack
+3. **Select "y"** when asked "Use Tor for anonymity?"
+4. **Tool automatically starts Tor** if not running
+5. **All HTTP requests are anonymized** through Tor network
+
+### Manual Tor Setup (Alternative):
+- Install Tor Browser or standalone Tor
+- Ensure Tor listens on port 9050
+- Tool will detect and use existing Tor instance
 
 ### Additional Protection Features:
 - **Randomized Headers**: Dynamic User-Agent and Referer rotation

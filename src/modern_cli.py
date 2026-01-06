@@ -22,7 +22,7 @@ from rich.padding import Padding
 from src.config import BANNER, CONFIG
 from src.classes import Menu, AttackDispatcher
 from src import security
-from src.utils import load_file_lines
+from src.utils import load_file_lines, auto_start_tor_if_needed
 
 # Initialize Rich Console
 console = Console()
@@ -396,7 +396,14 @@ class ModernCLI:
             
             use_tor = Prompt.ask("[bold yellow]Use Tor for anonymity? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
             if use_tor:
-                console.print("[green]✅ Tor will be used for requests[/green]")
+                console.print("[cyan]🔄 Checking Tor status...[/cyan]")
+                tor_success, tor_message = auto_start_tor_if_needed(CONFIG['TOR_PORT'])
+                if tor_success:
+                    console.print(f"[green]✅ {tor_message}[/green]")
+                else:
+                    console.print(f"[red]❌ {tor_message}[/red]")
+                    console.print("[yellow]⚠️  Continuing without Tor...[/yellow]")
+                    use_tor = False
 
         return {
             "target": target,

@@ -8,7 +8,9 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'C2_DEFAULT_PORT': 6667,  # พอร์ตเริ่มต้นสำหรับเซิร์ฟเวอร์ C2
     'NTP_SERVERS_FILE': 'ntp_servers.txt',  # ชื่อไฟล์ที่เก็บเซิร์ฟเวอร์ NTP
     'PROXY_FILE': 'proxy.txt',  # ชื่อไฟล์ที่เก็บรายการพร็อกซี
-    'TOR_PROXY': 'socks5://127.0.0.1:9050'  # Tor SOCKS proxy สำหรับปกป้องตัวตน
+    'TOR_PROXY': 'socks5://127.0.0.1:9050',  # Tor SOCKS proxy สำหรับปกป้องตัวตน
+    'TOR_AUTO_START': True,  # Auto-start Tor ถ้าเลือกใช้ Tor แต่ยังไม่รัน
+    'TOR_PORT': 9050  # พอร์ตที่ Tor ใช้
 }
 
 # แบนเนอร์ ASCII (ตามที่ผู้ใช้ส่งเข้ามา)  # คอมเมนต์ภาษาไทยอธิบายแบนเนอร์
