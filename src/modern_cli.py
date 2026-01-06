@@ -566,7 +566,7 @@ class ModernCLI:
                 ModernCLI.display_error(str(e))
 
             # Wait for user to continue
-            console.print()
-            input("[bold blue]Press Enter to continue...[/bold blue]")
+            console.print("[bold blue]Press Enter to continue...[/bold blue]", end="")
+            input()
             os.system('cls' if os.name == 'nt' else 'clear')
             ModernCLI.display_banner()
