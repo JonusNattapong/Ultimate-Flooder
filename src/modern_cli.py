@@ -173,7 +173,7 @@ class ModernCLI:
         banner_text = Text(BANNER, style="bold cyan")
         panel = Panel(
             Align.center(banner_text),
-            title="[bold red]IP-HUNTER v2.0[/bold red]",
+            title="[bold red]IP-HUNTER v2.1.0[/bold red]",
             title_align="center",
             border_style="red",
             padding=(1, 2)
