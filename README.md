@@ -1,4 +1,4 @@
-# IP-HUNTER | Advanced DDoS Toolkit & Security Suite
+# IP-HUNTER v2.1.0 | Advanced DDoS Toolkit & Security Suite
 
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 
@@ -11,6 +11,7 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 - **Modern CLI Interface**: Beautiful Terminal UI using the `rich` library with panels, tables, and live progress.
 - **Real-time Monitoring**: Live statistics including Packets/Bytes sent, success rate, and active threads.
 - **System Resource Watchdog**: Integrated monitoring of CPU and Memory usage with safety warnings.
+- **Identity Protection**: Built-in Tor integration for anonymous HTTP attacks.
 - **Layer 7 HTTP Floods**: Multiple methods including Basic, Asynchronous (aiohttp), and Cloudflare bypass.
 - **Layer 4 Protocol Floods**: SYN and UDP flooding with IP spoofing capabilities.
 - **Amplification Benchmarking**: Test NTP, Memcached, SSDP, and DNS amplification vectors.
@@ -42,21 +43,26 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 
 - **Python 3.8+**
 - **Root/Administrator Privileges** (Required for Layer 4 & Amplification attacks)
+- **Tor** (Optional, for identity protection in HTTP attacks)
 - **Dependencies**:
   ```bash
   pip install -r requirements.txt
   ```
-  *(Packages: requests, aiohttp, scapy, psutil, rich)*
+  *(Packages: requests, aiohttp, scapy, psutil, rich, PySocks)*
 
 ## 📦 Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/JonusNattapong/Ultimate-Flooder.git
-cd Ultimate-Flooder
+git clone https://github.com/JonusNattapong/IP-HUNTER.git
+cd IP-HUNTER
 
 # Install required packages
 pip install -r requirements.txt
+
+# Optional: Install Tor for identity protection
+# Download from: https://www.torproject.org/download/
+# Run Tor Browser or tor service on default port 9050
 ```
 
 ## 🎮 Usage
@@ -72,3 +78,24 @@ You can launch the tool using the following methods:
 ```bash
 python3 main.py
 ```
+
+## 🔒 Identity Protection
+
+IP-HUNTER includes built-in identity protection features to help maintain anonymity during security testing:
+
+### Tor Integration
+- **Automatic Tor Routing**: Route all HTTP attacks through Tor network
+- **SOCKS5 Proxy Support**: Uses `socks5://127.0.0.1:9050` by default
+- **CLI Integration**: Simple yes/no prompt during attack configuration
+
+### Usage with Tor:
+1. Install and run Tor Browser or Tor service
+2. Ensure Tor is listening on port 9050
+3. When configuring Layer 7 attacks, select "y" for Tor usage
+4. All HTTP requests will be anonymized through multiple Tor nodes
+
+### Additional Protection Features:
+- **Randomized Headers**: Dynamic User-Agent and Referer rotation
+- **IP Spoofing**: Built-in spoofing for Layer 4 attacks
+- **Proxy Support**: Compatible with custom proxy lists
+- **No Logging**: Tool doesn't store sensitive connection data
