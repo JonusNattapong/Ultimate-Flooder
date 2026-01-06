@@ -314,9 +314,6 @@ class ModernCLI:
     @staticmethod
     def get_attack_params(choice):
         """Get attack parameters with modern prompts"""
-        if choice == "19":
-            return {} # Interactive shell needs no params
-
         if choice == "20":  # Network Recon
             # Fully automated skip params
             return {"threads": 250, "subnet": None, "target": "local", "port": 0, "duration": 0, "proxies": []}
@@ -502,7 +499,7 @@ class ModernCLI:
 
         # Categorize attack
         is_l7 = choice in ["1", "2", "5", "8", "12", "13", "14", "15", "16"]
-        is_l4 = choice in ["3", "4"]
+        is_l4 = choice in ["3", "4", "19"]
         is_amp = choice in ["6", "9", "10", "11"]
 
         # Display category-specific panel
@@ -922,8 +919,8 @@ class ModernCLI:
                     ModernCLI.display_attack_start(choice, params)
                     
                     # Only show generic completion for tools that aren't persistent background services
-                    # (ID 7, 18 are background, ID 19 is shell)
-                    if str(choice) not in ["7", "18", "19"]:
+                    # (ID 7, 18 are background persistent services)
+                    if str(choice) not in ["7", "18"]:
                         ModernCLI.display_attack_complete(choice)
                         console.print("[bold blue]Press Enter to return to dashboard...[/bold blue]")
                         input()

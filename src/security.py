@@ -16,6 +16,10 @@ SECURITY_LIMITS = {
 
 # Global controls
 stop_event = threading.Event()
+active_threads = 0
+active_sockets = 0
+thread_lock = threading.Lock()
+socket_lock = threading.Lock()
 
 def check_system_resources():
     """Check if system resources are within safe limits"""

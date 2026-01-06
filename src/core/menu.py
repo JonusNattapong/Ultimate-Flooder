@@ -69,10 +69,15 @@ class Menu:
             return None
 
         try:
-            port_input = input(f"Port (default {CONFIG['DEFAULT_PORT']}): ").strip()
-            port = int(port_input) if port_input else CONFIG['DEFAULT_PORT']
-            if not (1 <= port <= 65535):
-                raise ValueError("Port must be between 1 and 65535")
+            port_input = input(f"Port (default {CONFIG['DEFAULT_PORT']}, range e.g. 1-1024): ").strip()
+            if not port_input:
+                port = CONFIG['DEFAULT_PORT']
+            elif "-" in port_input or "," in port_input:
+                port = port_input # Keep as string for scanner
+            else:
+                port = int(port_input)
+                if not (1 <= port <= 65535):
+                    raise ValueError("Port must be between 1 and 65535")
 
             threads_input = input(f"Threads (default {CONFIG['DEFAULT_THREADS']}, max 1000): ").strip()
             threads = int(threads_input) if threads_input else CONFIG['DEFAULT_THREADS']
