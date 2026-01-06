@@ -8,7 +8,10 @@ import aiohttp  # นำเข้าโมดูล aiohttp สำหรับ a
 import concurrent.futures  # นำเข้าโมดูล concurrent.futures สำหรับ ThreadPoolExecutor
 from scapy.all import *  # นำเข้าโมดูล scapy สำหรับ packet crafting
 from src.config import CONFIG  # นำเข้าการตั้งค่าจาก config
-from src.utils import get_random_headers, load_file_lines, generate_stealth_headers, randomize_timing  # นำเข้าฟังก์ชันยูทิลิตี้
+from src.utils import (
+    get_random_headers, load_file_lines, generate_stealth_headers, 
+    randomize_timing, add_system_log, SYSTEM_LOGS
+)
 from src.security import increment_thread_counter, decrement_thread_counter, increment_socket_counter, decrement_socket_counter
 from rich.console import Console
 from rich.table import Table
@@ -630,4 +633,230 @@ def port_scanner(target, ports, threads):
         console.print(Panel(f"[bold green]✅ Scan complete. Found {len(open_ports)} open ports.[/bold green]", border_style="green"))
     else:
         console.print(Panel(f"[bold red]❌ Scan complete. No open ports found on {target}.[/bold red]", border_style="red"))
+
+def network_scanner(threads=200, custom_subnet=None):
+    """Scan local network for active hosts and their open ports with persistence"""
+    import psutil
+    import json
+    import os
+    from datetime import datetime
+    
+    COMMON_PORTS = {
+        21: "FTP", 22: "SSH", 23: "Telnet", 80: "HTTP", 135: "RPC",
+        139: "NetBIOS", 443: "HTTPS", 445: "SMB", 3306: "MySQL", 3389: "RDP"
+    }
+
+    history_file = CONFIG.get('HISTORY_FILE', 'txt/discovery_history.json')
+    history_data = {}
+    
+    # Load history
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, 'r') as f:
+                history_data = json.load(f)
+        except:
+            pass
+
+    subnets_to_scan = []
+    
+    if custom_subnet:
+        s = custom_subnet.strip()
+        if not s.endswith("."): s += "."
+        subnets_to_scan.append(s)
+    else:
+        # 1. Detect active interface subnets
+        for interface, addrs in psutil.net_if_addrs().items():
+            for addr in addrs:
+                if addr.family == socket.AF_INET:
+                    ip = addr.address
+                    if ip != '127.0.0.1':
+                        s = ".".join(ip.split(".")[:-1]) + "."
+                        if s not in subnets_to_scan:
+                            subnets_to_scan.append(s)
+        
+        # 2. Deep Discovery: Common private subnets and ARP cache
+        candidates = ["192.168.0.", "192.168.1.", "192.168.2.", "192.168.10.", "192.168.50.", "192.168.60.", "10.0.0.", "10.0.1.", "192.168.100."]
+        
+        # Check ARP cache
+        try:
+            import subprocess
+            output = subprocess.check_output("arp -a", shell=True).decode()
+            for line in output.split("\n"):
+                parts = line.split()
+                if len(parts) > 0:
+                    ip_cand = parts[0]
+                    if "." in ip_cand:
+                        s = ".".join(ip_cand.split(".")[:-1]) + "."
+                        if s not in subnets_to_scan and s.startswith(("192.", "10.", "172.")):
+                            subnets_to_scan.append(s)
+        except:
+            pass
+
+        # Since user wants "Comprehensive", we include candidates that are likely to be used
+        # We will scan them even if probing fails, just to be sure
+        for cand in candidates:
+            if cand not in subnets_to_scan:
+                subnets_to_scan.append(cand)
+
+    if not subnets_to_scan:
+        console.print("[bold red]❌ No active network interfaces found![/bold red]")
+        return
+
+    console.print(f"[bold cyan]🛰️ IP-HUNTER AUTO-RECON ACTIVATED[/bold cyan]")
+    console.print(f"[bold white]Targeting {len(subnets_to_scan)} subnets:[/bold white] {', '.join([s+'0/24' for s in subnets_to_scan])}\n")
+
+    results = []
+    
+    # Check for SYN-ACK spoofing (Transparent Proxy)
+    spoofing_detected = False
+    try:
+        # Try a definitely-closed port on a likely-dead IP
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_sock.settimeout(0.3)
+        if test_sock.connect_ex(("192.168.254.254", 9999)) == 0:
+            spoofing_detected = True
+        test_sock.close()
+    except:
+        pass
+
+    if spoofing_detected:
+        console.print("[bold red]⚠️  Warning: Transparent Proxy/Spoofing detected! Success results may be inaccurate.[/]")
+
+    def check_host(ip):
+        # Skip local machine to avoid confusion
+        try:
+            if ip == socket.gethostbyname(socket.gethostname()):
+                return None
+        except:
+            pass
+
+        # Check common ports with a stricter timeout
+        # If spoofing is detected, we require AT LEAST TWO ports to be open to consider it ONLINE
+        hits = 0
+        open_ports = []
+        
+        # Test a subset first for speed
+        test_ports = [80, 443, 445, 135, 22, 3389]
+        for port in test_ports:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.15)
+                result = sock.connect_ex((ip, port))
+                if result == 0:
+                    hits += 1
+                    open_ports.append(f"{port}({COMMON_PORTS.get(port, 'Unknown')})")
+                    # If not spoofing, one hit is enough
+                    if not spoofing_detected:
+                        sock.close()
+                        break
+                sock.close()
+            except:
+                continue
+
+        if hits > 0:
+            # Full scan for meaningful ports if we think it's alive
+            unique_ports = set(open_ports)
+            for p in COMMON_PORTS:
+                if f"{p}({COMMON_PORTS[p]})" in unique_ports: continue
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.1)
+                    if s.connect_ex((ip, p)) == 0:
+                        unique_ports.add(f"{p}({COMMON_PORTS[p]})")
+                    s.close()
+                except: continue
+            
+            # If spoofing, we need more than 1 port OR a specific set of ports
+            if spoofing_detected and len(unique_ports) < 2:
+                return None
+            
+            # Try to get hostname
+            hostname = "Unknown"
+            try:
+                hostname = socket.gethostbyaddr(ip)[0]
+            except:
+                pass
+            
+            add_system_log(f"[green]NEW DEVICE:[/] {ip} ({hostname}) found")
+            return {"ip": ip, "status": "ONLINE", "ports": list(unique_ports), "hostname": hostname}
+        
+        return None
+
+    for subnet in subnets_to_scan:
+        with console.status(f"[bold cyan]🛰️  RADAR SCANNING: {subnet}0/24[/bold cyan]", spinner="aesthetic"):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+                ips = [subnet + str(i) for i in range(1, 255)]
+                futures = [executor.submit(check_host, ip) for ip in ips]
+                for future in concurrent.futures.as_completed(futures):
+                    res = future.result()
+                    if res:
+                        results.append(res)
+                        console.print(f"  [bold green]✔[/] [white]{res['ip']}[/] is [green]ONLINE[/] - Ports: [yellow]{', '.join(res['ports']) if res['ports'] else 'None'}[/]")
+
+    # Summary Table
+    table = Table(title="Global Network Discovery Results", border_style="blue")
+    table.add_column("IP Address", style="cyan")
+    table.add_column("Hostname", style="magenta")
+    table.add_column("Status", style="bold")
+    table.add_column("Open Ports (Common)", style="yellow")
+    table.add_column("Last Seen", style="dim")
+
+    # Update history and Prepare final list
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    online_ips = [r['ip'] for r in results]
+    
+    # Add newly found online hosts to history
+    for r in results:
+        history_data[r['ip']] = {
+            "hostname": r['hostname'],
+            "ports": r['ports'],
+            "last_seen": current_time
+        }
+
+    # Save updated history
+    try:
+        if not os.path.exists('txt'): os.makedirs('txt')
+        with open(history_file, 'w') as f:
+            json.dump(history_data, f, indent=4)
+    except:
+        pass
+
+    # Merge history for displaying OFFLINE hosts
+    display_results = []
+    
+    # 1. Add currently online hosts
+    for r in results:
+        display_results.append({
+            "ip": r['ip'],
+            "hostname": r['hostname'],
+            "status": "[bold green]ONLINE[/]",
+            "ports": ", ".join(r['ports']),
+            "last_seen": "Now"
+        })
+
+    # 2. Add offline hosts (those in history but not in online_ips)
+    for ip, data in history_data.items():
+        if ip not in online_ips:
+            # Only show offline hosts that belong to the subnets we just scanned
+            is_in_scanned_subnet = any(ip.startswith(s) for s in subnets_to_scan)
+            if is_in_scanned_subnet:
+                display_results.append({
+                    "ip": ip,
+                    "hostname": data['hostname'],
+                    "status": "[bold red]OFFLINE[/]",
+                    "ports": "Previously: " + ", ".join(data['ports']),
+                    "last_seen": data['last_seen']
+                })
+
+    if not display_results:
+        table.add_row("No devices found", "-", "-", "-", "-")
+    else:
+        # Sort results by IP
+        sorted_display = sorted(display_results, key=lambda x: [int(part) for part in x['ip'].split('.')])
+        for r in sorted_display:
+            table.add_row(r['ip'], r['hostname'], r['status'], r['ports'], r['last_seen'])
+
+    console.print("\n")
+    console.print(table)
+    console.print(Panel(f"[bold green]✅ Scan Complete! Online: {len(results)} | Tracked Offline: {len(display_results)-len(results)}[/bold green]", border_style="blue"))
 

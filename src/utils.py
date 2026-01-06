@@ -1,8 +1,20 @@
 import os  # นำเข้าโมดูล os สำหรับการทำงานกับระบบไฟล์
 import random  # นำเข้าโมดูล random สำหรับสุ่มค่า
 import ctypes  # นำเข้าโมดูล ctypes สำหรับเรียกใช้ Windows API
+import time
 from src.config import USER_AGENTS, REFERERS  # นำเข้า User Agents และ Referers จาก config
 
+# System logs global state
+SYSTEM_LOGS = []
+
+def add_system_log(msg):
+    """Add a timestamped log entry to global dashboard"""
+    # Force localized timestamp
+    timestamp = time.strftime("%H:%M:%S")
+    SYSTEM_LOGS.append(f"[bold dim][{timestamp}][/] {msg}")
+    # Keep last 50 logs for display cycle
+    if len(SYSTEM_LOGS) > 50:
+        SYSTEM_LOGS.pop(0)
 
 def get_random_headers():  # ฟังก์ชันสร้าง HTTP headers แบบสุ่ม
     """Generate random headers for requests"""  # ของฟังก์ชัน
@@ -421,3 +433,90 @@ def validate_proxy_chain(chain):  # ฟังก์ชันตรวจสอ�
             continue  # ข้ามไป
     
     return valid_proxies  # คืนค่า proxy ที่ valid
+
+
+def ip_tracker(target_ip=None):
+    """Deep OSINT IP Tracker - Get detailed geolocation and network intel"""
+    import requests
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    import re
+    
+    console = Console()
+    
+    # If no IP provided, get current public IP
+    if not target_ip:
+        try:
+            target_ip = requests.get('https://api.ipify.org', timeout=5).text.strip()
+        except:
+            console.print("[bold red] Error: Could not determine your public IP.[/]")
+            return
+
+    # Check for private IP ranges
+    private_patterns = [
+        r'^10\.',                   # 10.0.0.0 – 10.255.255.255
+        r'^172\.(1[6-9]|2[0-9]|3[0-1])\.', # 172.16.0.0 – 172.31.255.255
+        r'^192\.168\.',             # 192.168.0.0 – 192.168.255.255
+        r'^127\.',                  # 127.0.0.0 – 127.255.255.255
+        r'^169\.254\.'              # APIPA
+    ]
+    
+    is_private = any(re.match(pattern, target_ip) for pattern in private_patterns)
+    
+    if is_private:
+        console.print(f"\n[bold yellow]  🛰️  INITIATING DEEP TRACKING: {target_ip}[/]")
+        console.print(Panel(
+            f"[bold yellow]⚠️  Local/Private IP Detected[/bold yellow]\n\n"
+            f"ไอพี [white]{target_ip}[/white] เป็นไอพีภายในเครือข่าย (LAN)\n"
+            f"ระบบ OSINT ไม่สามารถระบุที่อยู่ทางภูมิศาสตร์ของไอพีส่วนตัวได้\n"
+            f"กรุณาใช้ไอพีสาธารณะ (Public IP) เพื่อค้นหาข้อมูลที่อยู่",
+            border_style="yellow", title="IP-Tracker Info"
+        ))
+        return
+
+    console.print(f"\n[bold yellow]  🛰️  INITIATING DEEP TRACKING: {target_ip}[/]")
+    with console.status("[bold cyan]INTELLIGENCE GATHERING FROM OSINT DATABASE...[/bold cyan]", spinner="pulse"):
+        try:
+            fields = "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting,query,reverse"
+            response = requests.get(f"http://ip-api.com/json/{target_ip}?fields={fields}", timeout=10)
+            data = response.json()
+            
+            if data.get('status') == 'fail':
+                console.print(f"[bold red] Tracking Failed:[/] {data.get('message', 'Unknown error')}")
+                return
+
+            table = Table(title=f" DEEP INTEL REPORT: {target_ip}", border_style="bold blue", title_style="bold underline white")
+            table.add_column("Category", style="cyan", no_wrap=True)
+            table.add_column("Information", style="white")
+
+            table.add_row(" Location", f"{data.get('city', 'N/A')}, {data.get('regionName', 'N/A')} ({data.get('region', 'N/A')}), {data.get('country', 'N/A')}")
+            table.add_row(" Zip/Postal", data.get('zip', 'N/A'))
+            table.add_row(" Timezone", data.get('timezone', 'N/A'))
+            table.add_row(" ISP", data.get('isp', 'N/A'))
+            table.add_row(" Organization", data.get('org', 'N/A'))
+            table.add_row(" ASN", data.get('as', 'N/A'))
+            table.add_row(" Reverse DNS", data.get('reverse', 'N/A'))
+            
+            lat, lon = data.get('lat'), data.get('lon')
+            table.add_row(" Coordinates", f"Lat: {lat}, Lon: {lon}")
+            google_maps = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+            table.add_row(" Physical Map", f"[link={google_maps}][underline blue]Open in Google Maps[/link]")
+
+            is_proxy = "[bold red]YES[/]" if data.get('proxy') else "[bold green]NO[/]"
+            is_mobile = "[bold yellow]YES (Cellular)[/]" if data.get('mobile') else "[bold green]NO[/]"
+            is_hosting = "[bold magenta]YES (Data Center)[/]" if data.get('hosting') else "[bold green]NO[/]"
+            
+            table.add_row(" Proxy/VPN", is_proxy)
+            table.add_row(" Mobile Net", is_mobile)
+            table.add_row(" Hosting/DC", is_hosting)
+
+            console.print("\n")
+            console.print(Panel(table, border_style="blue", expand=False))
+            console.print(f"[dim]Data provided by ip-api.com OSINT database[/dim]")
+            
+            add_system_log(f"[cyan]OSINT:[/] Generated intel report for {target_ip}")
+            
+        except Exception as e:
+            console.print(f"[bold red] Error connected to OSINT server:[/] {str(e)}")
+            add_system_log(f"[red]ERROR:[/] OSINT lookup failed for {target_ip}")
