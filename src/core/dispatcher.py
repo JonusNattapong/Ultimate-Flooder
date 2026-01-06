@@ -120,7 +120,8 @@ class AttackDispatcher:
 
         elif choice == "17":
             ports = params.get("ports") or params.get("port") or "1-1024"
-            port_scanner(target, ports, threads)
+            stealth = params.get("stealth_mode", True)
+            port_scanner(target, ports, threads, stealth=stealth)
 
         elif choice == "19":
             # Hybrid ICMP attack: Run both in parallel

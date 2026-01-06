@@ -482,12 +482,14 @@ class ModernCLI:
                 return ModernCLI.get_attack_params(choice)
 
             threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=100)
+            stealth = Prompt.ask("[bold yellow]Enable Stealth Mode (SYN Scan)?[/bold yellow]", choices=["y", "n"], default="y") == "y"
             
             return {
                 "target": target,
                 "ports": ports,
                 "port_text": port_input, # for display
                 "threads": threads,
+                "stealth_mode": stealth,
                 "duration": 0, # Not used
                 "proxies": [] # Not used
             }
