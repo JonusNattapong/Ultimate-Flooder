@@ -384,6 +384,7 @@ class ModernCLI:
         # Max Requests and Proxy (Mostly for L7)
         max_requests = 0
         proxies = []
+        use_tor = False
 
         if is_l7:
             max_requests = IntPrompt.ask("[bold yellow]Total Requests (0 for unlimited)[/bold yellow]", default=0)
@@ -392,6 +393,10 @@ class ModernCLI:
                 if os.path.isfile(proxy_file):
                     proxies = load_file_lines(proxy_file)
                     console.print(f"[green]✅ Loaded {len(proxies)} proxies[/green]")
+            
+            use_tor = Prompt.ask("[bold yellow]Use Tor for anonymity? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            if use_tor:
+                console.print("[green]✅ Tor will be used for requests[/green]")
 
         return {
             "target": target,
@@ -399,7 +404,8 @@ class ModernCLI:
             "threads": threads,
             "duration": duration,
             "max_requests": max_requests,
-            "proxies": proxies
+            "proxies": proxies,
+            "use_tor": use_tor
         }
 
     @staticmethod
