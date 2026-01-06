@@ -12,10 +12,17 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'TOR_AUTO_START': True,  # Auto-start Tor ถ้าเลือกใช้ Tor แต่ยังไม่รัน
     'TOR_PORT': 9050,  # พอร์ตที่ Tor ใช้
     'TOR_BRIDGES': [],  # Tor bridges สำหรับ bypass censorship
-    'VPN_AUTO_START': False,  # Auto-start VPN (ยังไม่ implement)
-    'VPN_CONFIG_PATH': '',  # Path ไปยัง VPN config
-    'PROXY_CHAIN_ENABLED': False,  # ใช้ proxy chain
-    'PROXY_CHAIN_LIST': [],  # ลิสต์ proxy สำหรับ chain
+    'VPN_ENABLED': False,  # เปิดใช้งาน VPN integration
+    'VPN_INTERFACE': '',  # ชื่อ interface ของ VPN (เช่น 'tun0', 'ppp0')
+    'VPN_CHECK_COMMAND': 'ip route show',  # คำสั่งตรวจสอบ VPN status
+    'VPN_SERVERS': ['nordvpn', 'expressvpn', 'protonvpn'],  # VPN providers ที่รองรับ
+    'PROXY_CHAIN_ENABLED': True,  # เปิดใช้งาน proxy chains
+    'PROXY_CHAIN_MAX_LENGTH': 3,  # ความยาวสูงสุดของ proxy chain
+    'PROXY_CHAIN_LIST': [  # ลิสต์ proxy สำหรับ chains
+        'socks5://127.0.0.1:9050',  # Tor
+        # เพิ่ม proxy อื่นๆ ได้ที่นี่
+    ],
+    'PROXY_CHAIN_ROTATION': True,  # หมุน proxy ใน chain แบบสุ่ม
     'STEALTH_MODE': False,  # โหมด stealth ที่เพิ่ม randomization
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
 }

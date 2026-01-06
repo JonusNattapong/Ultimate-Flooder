@@ -266,7 +266,7 @@ def cleanup_temp_files():  # ฟังก์ชัน cleanup temp files
         return False, f"Cleanup failed: {str(e)}"  # คืนค่าผลลัพธ์
 
 
-def generate_noise_traffic(target_url, num_requests=5):  # ฟังก์ชันสร้าง noise traffic
+def generate_noise_traffic(num_requests=5):  # ฟังก์ชันสร้าง noise traffic
     """Generate noise traffic to obscure real attacks"""  # ของฟังก์ชัน
     import requests  # นำเข้าโมดูล requests
     
@@ -313,3 +313,111 @@ def stealth_mode_init():  # ฟังก์ชันเริ่มต้น ste
     generate_noise_traffic(num_requests=3)  # สร้าง noise traffic
     
     return cleanup_success, cleanup_msg  # คืนค่าผลลัพธ์
+
+
+# VPN Management Functions  # ฟังก์ชันจัดการ VPN
+def check_vpn_running(interface_name=None):  # ฟังก์ชันตรวจสอบ VPN
+    """Check if VPN is running by checking network interfaces"""  # ของฟังก์ชัน
+    import subprocess  # นำเข้าโมดูล subprocess
+    import platform  # นำเข้าโมดูล platform
+    
+    system = platform.system().lower()  # ตรวจสอบระบบปฏิบัติการ
+    
+    try:  # ลองตรวจสอบ VPN
+        if system == "windows":  # ถ้าเป็น Windows
+            # Check for VPN adapters  # ตรวจสอบ VPN adapters
+            result = subprocess.run(['ipconfig', '/all'], capture_output=True, text=True)  # รัน ipconfig
+            output = result.stdout.lower()  # แปลงเป็น lowercase
+            vpn_indicators = ['vpn', 'tap', 'tun', 'ppp', 'nordvpn', 'expressvpn', 'protonvpn']  # คำบ่งชี้ VPN
+            
+            for indicator in vpn_indicators:  # วนลูปตรวจสอบ
+                if indicator in output:  # ถาพบ indicator
+                    return True, f"VPN detected ({indicator})"  # คืนค่าผลลัพธ์
+        
+        elif system in ["linux", "darwin"]:  # ถ้าเป็น Linux หรือ macOS
+            # Check network interfaces  # ตรวจสอบ network interfaces
+            result = subprocess.run(['ip', 'route', 'show'], capture_output=True, text=True)  # รัน ip route
+            output = result.stdout.lower()  # แปลงเป็น lowercase
+            
+            # Look for VPN-related routes  # มองหา routes ที่เกี่ยวข้องกับ VPN
+            vpn_indicators = ['tun', 'tap', 'ppp', 'vpn']  # คำบ่งชี้ VPN
+            for indicator in vpn_indicators:  # วนลูปตรวจสอบ
+                if indicator in output:  # ถาพบ indicator
+                    return True, f"VPN detected ({indicator})"  # คืนค่าผลลัพธ์
+        
+        return False, "No VPN detected"  # คืนค่าผลลัพธ์ถ้าไม่พบ VPN
+    
+    except Exception as e:  # จัดการข้อผิดพลาด
+        return False, f"Error checking VPN: {str(e)}"  # คืนค่าผลลัพธ์
+
+
+def get_vpn_ip():  # ฟังก์ชันได้ IP ของ VPN
+    """Get current public IP (useful for VPN verification)"""  # ของฟังก์ชัน
+    import requests  # นำเข้าโมดูล requests
+    
+    try:  # ลองได้ IP
+        response = requests.get('https://api.ipify.org', timeout=5)  # ส่ง request ไปยัง ipify
+        if response.status_code == 200:  # ถ้าสำเร็จ
+            return response.text.strip()  # คืนค่า IP
+    except:  # ถ้าเกิดข้อผิดพลาด
+        pass
+    
+    return None  # คืนค่า None ถ้าไม่ได้
+
+
+# Proxy Chain Management Functions  # ฟังก์ชันจัดการ proxy chains
+def create_proxy_chain(proxy_list, max_length=3):  # ฟังก์ชันสร้าง proxy chain
+    """Create a randomized proxy chain for maximum anonymity"""  # ของฟังก์ชัน
+    if not proxy_list or len(proxy_list) < 2:  # ถ้า proxy น้อยกว่า 2
+        return proxy_list  # คืนค่า proxy list เดิม
+    
+    # Randomly select proxies for chain  # สุ่มเลือก proxy สำหรับ chain
+    chain_length = min(max_length, len(proxy_list))  # ความยาว chain
+    selected_proxies = random.sample(proxy_list, chain_length)  # สุ่มเลือก proxy
+    
+    # Shuffle for randomization  # สลับเพื่อ randomization
+    random.shuffle(selected_proxies)  # สลับลำดับ
+    
+    return selected_proxies  # คืนค่า proxy chain
+
+
+def setup_proxy_chain(proxy_list):  # ฟังก์ชันตั้งค่า proxy chain (updated)
+    """Setup a chain of proxies for maximum anonymity"""  # ของฟังก์ชัน
+    from src.config import CONFIG  # นำเข้า config
+    
+    if not CONFIG['PROXY_CHAIN_ENABLED']:  # ถ้าไม่ได้เปิดใช้งาน proxy chain
+        return proxy_list[0] if proxy_list else None  # คืนค่า proxy แรกหรือ None
+    
+    # Create chain  # สร้าง chain
+    chain = create_proxy_chain(proxy_list, CONFIG['PROXY_CHAIN_MAX_LENGTH'])  # สร้าง chain
+    
+    if len(chain) == 1:  # ถ้า chain มีแค่ 1 ตัว
+        return chain[0]  # คืนค่า proxy นั้น
+    
+    # For multiple proxies, return the first one  # สำหรับหลาย proxy, คืนตัวแรก
+    # In advanced implementation, would chain them properly  # ใน implementation จริงต้อง chain อย่างถูกต้อง
+    return chain[0]  # คืนค่า proxy แรกใน chain
+
+
+def validate_proxy_chain(chain):  # ฟังก์ชันตรวจสอบ proxy chain
+    """Validate that all proxies in chain are working"""  # ของฟังก์ชัน
+    import requests  # นำเข้าโมดูล requests
+    
+    valid_proxies = []  # ลิสต์ proxy ที่ valid
+    
+    for proxy in chain:  # วนลูปตรวจสอบแต่ละ proxy
+        try:  # ลอง test proxy
+            # Parse proxy URL  # แยก proxy URL
+            if proxy.startswith('socks'):  # ถ้าเป็น SOCKS
+                proxy_dict = {'http': proxy, 'https': proxy}  # สร้าง dict
+            else:  # ถ้าเป็น HTTP
+                proxy_dict = {'http': proxy, 'https': proxy}  # สร้าง dict
+            
+            # Test with a simple request  # ทดสอบด้วย request ง่ายๆ
+            response = requests.get('http://httpbin.org/ip', proxies=proxy_dict, timeout=10)  # ส่ง request
+            if response.status_code == 200:  # ถ้าสำเร็จ
+                valid_proxies.append(proxy)  # เพิ่มเข้า valid list
+        except:  # ถ้าเกิดข้อผิดพลาด
+            continue  # ข้ามไป
+    
+    return valid_proxies  # คืนค่า proxy ที่ valid

@@ -22,7 +22,7 @@ from rich.padding import Padding
 from src.config import BANNER, CONFIG
 from src.classes import Menu, AttackDispatcher
 from src import security
-from src.utils import load_file_lines, auto_start_tor_if_needed, stealth_mode_init, generate_stealth_headers
+from src.utils import load_file_lines, auto_start_tor_if_needed, stealth_mode_init, generate_stealth_headers, check_vpn_running, get_vpn_ip, create_proxy_chain, validate_proxy_chain
 
 # Initialize Rich Console
 console = Console()
@@ -414,6 +414,38 @@ class ModernCLI:
                 else:
                     console.print(f"[red]❌ {cleanup_msg}[/red]")
                 console.print("[green]✅ Stealth mode activated[/green]")
+            
+            # VPN Integration
+            use_vpn = Prompt.ask("[bold yellow]Use VPN for additional protection? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            if use_vpn:
+                console.print("[cyan]🔍 Checking VPN status...[/cyan]")
+                vpn_running, vpn_message = check_vpn_running()
+                if vpn_running:
+                    console.print(f"[green]✅ {vpn_message}[/green]")
+                    # Get VPN IP for verification
+                    vpn_ip = get_vpn_ip()
+                    if vpn_ip:
+                        console.print(f"[blue]📍 VPN IP: {vpn_ip}[/blue]")
+                else:
+                    console.print(f"[red]❌ {vpn_message}[/red]")
+                    console.print("[yellow]⚠️  Please connect to VPN manually before running attacks[/yellow]")
+                    console.print("[yellow]💡  Supported VPNs: NordVPN, ExpressVPN, ProtonVPN[/yellow]")
+                    use_vpn = False
+            
+            # Proxy Chain Configuration
+            use_proxy_chain = False
+            if proxies:
+                use_proxy_chain = Prompt.ask("[bold yellow]Enable proxy chain rotation? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+                if use_proxy_chain:
+                    console.print("[cyan]🔗 Setting up proxy chain...[/cyan]")
+                    # Validate and setup proxy chain
+                    valid_proxies = validate_proxy_chain(proxies)
+                    if len(valid_proxies) >= 2:
+                        console.print(f"[green]✅ Proxy chain ready with {len(valid_proxies)} proxies[/green]")
+                        proxies = create_proxy_chain(valid_proxies, CONFIG['PROXY_CHAIN_MAX_LENGTH'])
+                    else:
+                        console.print("[red]❌ Not enough valid proxies for chaining[/red]")
+                        use_proxy_chain = False
 
         return {
             "target": target,
@@ -423,7 +455,9 @@ class ModernCLI:
             "max_requests": max_requests,
             "proxies": proxies,
             "use_tor": use_tor,
-            "stealth_mode": stealth_mode
+            "stealth_mode": stealth_mode,
+            "use_vpn": use_vpn,
+            "use_proxy_chain": use_proxy_chain
         }
 
     @staticmethod
@@ -457,6 +491,10 @@ class ModernCLI:
                 table.add_row("Tor", "Enabled")
             if params.get("stealth_mode"):
                 table.add_row("Stealth Mode", "Active")
+            if params.get("use_vpn"):
+                table.add_row("VPN", "Enabled")
+            if params.get("use_proxy_chain"):
+                table.add_row("Proxy Chain", "Active")
 
         console.print(table)
         console.print()

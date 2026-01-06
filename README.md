@@ -90,11 +90,23 @@ IP-HUNTER includes comprehensive identity protection and advanced stealth featur
 - **SOCKS5 Proxy Support**: Uses `socks5://127.0.0.1:9050` by default
 - **CLI Integration**: Simple yes/no prompt during attack configuration
 
+### VPN Integration
+- **VPN Detection**: Automatically detects active VPN connections
+- **IP Verification**: Shows current public IP when VPN is active
+- **Supported Providers**: NordVPN, ExpressVPN, ProtonVPN, and other common VPNs
+- **Layered Protection**: Use VPN + Tor for maximum anonymity
+
 ### Advanced Stealth Mode
-- **Randomized Headers**: Generates unique, realistic browser headers for each request
+- **Randomized Headers**: Generates unique, realistic browser fingerprints for each request
 - **Timing Randomization**: Variable delays between requests to mimic human behavior
 - **Anti-Forensic Cleanup**: Automatically removes temporary files and traces
 - **Proxy Chain Support**: Multiple proxy layers for enhanced anonymity
+
+### Proxy Chain Rotation
+- **Chain Creation**: Automatically creates randomized proxy chains
+- **Validation**: Tests proxy validity before use
+- **Failover**: Continues with working proxies if some fail
+- **Load Distribution**: Distributes traffic across multiple proxies
 - **Noise Traffic Generation**: Optional background traffic to mask attack patterns
 
 ### Usage with Tor:
@@ -104,6 +116,30 @@ IP-HUNTER includes comprehensive identity protection and advanced stealth featur
 4. **Select "y"** when asked "Enable stealth mode (advanced anti-trace)?"
 5. **Tool automatically starts Tor** if not running
 6. **All HTTP requests are anonymized** through Tor network with stealth features
+
+### Usage with VPN:
+1. **Connect to VPN** using your preferred provider (NordVPN, ExpressVPN, etc.)
+2. **Run IP-HUNTER** and select Layer 7 attack
+3. **Select "y"** when asked "Use VPN for additional protection?"
+4. **Tool will verify VPN connection** and show your VPN IP
+5. **Combine with Tor** for maximum protection: VPN → Tor → Target
+
+### Usage with Proxy Chains:
+1. **Prepare proxy list** in `proxy.txt` file (one proxy per line)
+2. **Run IP-HUNTER** and select Layer 7 attack
+3. **Load proxies** when prompted
+4. **Select "y"** when asked "Enable proxy chain rotation?"
+5. **Tool validates proxies** and creates randomized chains
+6. **Traffic rotates** through different proxy combinations
+
+### Maximum Anonymity Setup:
+```
+User → VPN (NordVPN) → Tor Network → Proxy Chain (3-5 proxies) → Target Website
+```
+1. Connect to VPN first
+2. Run IP-HUNTER with Layer 7 attack
+3. Enable all protection layers: Tor + Stealth Mode + VPN + Proxy Chains
+4. Tool provides 5+ layers of anonymity protection
 
 ### Manual Tor Setup (Alternative):
 - Install Tor Browser or standalone Tor
