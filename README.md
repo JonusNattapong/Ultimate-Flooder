@@ -1,4 +1,4 @@
-# IP-HUNTER v2.1.0 | Advanced DDoS Toolkit & Security Suite
+# IP-HUNTER v2.5.0 | Advanced DDoS Toolkit & Security Suite
 
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 

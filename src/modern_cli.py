@@ -360,7 +360,7 @@ class ModernCLI:
         
         layout_content.add_row(bottom_grid)
 
-        return Panel(layout_content, title="[bold magenta] IP-HUNTER v2.1.0 Dashboard [/bold magenta]", border_style="bright_blue")
+        return Panel(layout_content, title="[bold magenta] IP-HUNTER v2.5.0 Dashboard [/bold magenta]", border_style="bright_blue")
 
     @staticmethod
     def get_choice():
