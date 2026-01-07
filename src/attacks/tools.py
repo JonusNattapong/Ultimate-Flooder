@@ -14,6 +14,7 @@ console = Console()
 
 def proxy_autopilot():
     """Proxy Scraper & Validator - Finds and tests public proxies"""
+    from src.utils.ui import create_cyber_progress
     add_system_log("[bold cyan]AUTOPILOT:[/] Scraping public proxies...")
     api_urls = [
         "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",

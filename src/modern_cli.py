@@ -26,17 +26,18 @@ from src.core.menu import Menu
 from src.core.dispatcher import AttackDispatcher
 from src import security
 from src.utils import (
-    load_file_lines, auto_start_tor_if_needed, 
-    generate_stealth_headers, check_vpn_running, 
+    load_file_lines, auto_start_tor_if_needed,
+    generate_stealth_headers, check_vpn_running,
     add_system_log, SYSTEM_LOGS, stealth_mode_init,
     send_telemetry
 )
+from src.utils.ui import create_cyber_progress
 from src.utils.ui import CyberSpinnerColumn
 from src.utils.network import get_vpn_ip
 from src.utils.system import cleanup_temp_files
 
-# Initialize Rich Console
-console = Console()
+# Initialize Rich Console with optimized settings for Windows
+console = Console(force_terminal=True, color_system="auto")
 
 class AttackMonitor:
     """Real-time attack monitoring system"""
@@ -53,6 +54,15 @@ class AttackMonitor:
         self.active_connections = 0
         self.monitoring = False
         self.monitor_thread = None
+        
+        # Initialize Layout and Components Once for Smoothness
+        self.layout = Layout()
+        self.layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="stats", size=9),
+            Layout(name="system", size=7),
+            Layout(name="progress", size=3)
+        )
 
     def start_monitoring(self):
         """Start the monitoring thread"""
@@ -79,7 +89,7 @@ class AttackMonitor:
             time.sleep(1)  # Update every second
 
     def get_stats_panel(self):
-        """Generate the statistics panel"""
+        """Generate the statistics panel with high-performance rendering"""
         elapsed = time.time() - self.start_time
         
         if self.max_requests > 0:
@@ -89,89 +99,65 @@ class AttackMonitor:
             progress_percent = min(100, (elapsed / self.duration) * 100)
             time_info = f"{max(0, self.duration - int(elapsed))}s left"
 
-        # System stats
+        # System stats (Fast Update)
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            cpu_percent = psutil.cpu_percent()
             memory = psutil.virtual_memory()
             memory_percent = memory.percent
-            memory_used = memory.used / (1024**3)  # GB
-            memory_total = memory.total / (1024**3)  # GB
+            memory_used = memory.used / (1024**3)
+            memory_total = memory.total / (1024**3)
         except:
-            cpu_percent = 0
-            memory_percent = 0
-            memory_used = 0
-            memory_total = 0
+            cpu_percent = memory_percent = memory_used = memory_total = 0
 
-        # Create layout
-        layout = Layout()
-        layout.split_column(
-            Layout(name="header", size=3),
-            Layout(name="stats", size=8),
-            Layout(name="system", size=6),
-            Layout(name="progress", size=4)
-        )
+        # Update Header
+        self.layout["header"].update(Panel(
+            f"[bold cyan]🎯 {self.attack_name}[/bold cyan] | [bold white]Target:[/bold white] {self.target} | [bold yellow]Time:[/bold yellow] {time_info}",
+            border_style="cyan", padding=(0, 1)
+        ))
 
-        # Header
-        header_panel = Panel(
-            f"[bold cyan]🎯 {self.attack_name}[/bold cyan]\n"
-            f"[bold white]Target:[/bold white] {self.target}\n"
-            f"[bold white]Duration:[/bold white] {self.duration}s",
-            border_style="cyan",
-            padding=(0, 1)
-        )
-        layout["header"].update(header_panel)
-
-        # Attack Statistics
-        stats_table = Table(show_header=True, header_style="bold magenta", show_edge=False)
-        stats_table.add_column("Metric", style="cyan", width=15)
-        stats_table.add_column("Value", style="white", width=15)
-        stats_table.add_column("Rate/sec", style="green", width=10)
+        # Update Attack Statistics
+        stats_table = Table(show_header=True, header_style="bold magenta", show_edge=False, expand=True)
+        stats_table.add_column("Metric", style="cyan")
+        stats_table.add_column("Current Value", style="white")
+        stats_table.add_column("Rate/sec", style="green")
 
         packets_per_sec = self.packets_sent / max(1, elapsed)
         bytes_per_sec = self.bytes_sent / max(1, elapsed)
         success_rate = (self.packets_sent / max(1, self.packets_sent + self.packets_failed)) * 100
 
-        stats_table.add_row("Packets Sent", f"{self.packets_sent:,}", f"{packets_per_sec:.0f}")
-        stats_table.add_row("Bytes Sent", f"{self.bytes_sent:,}", f"{bytes_per_sec:.0f}")
-        stats_table.add_row("Active Threads", str(security.active_threads), "")
-        stats_table.add_row("Active Sockets", str(security.active_sockets), "")
-        stats_table.add_row("Success Rate", f"{success_rate:.1f}%", "")
+        stats_table.add_row("PPS (Packets/s)", f"{self.packets_sent:,}", f"{packets_per_sec:.0f}")
+        stats_table.add_row("Failed Packets", f"[bold red]{self.packets_failed:,}[/bold red]", "")
+        stats_table.add_row("Throughput", f"{self.bytes_sent / 1024 / 1024:.2f} MB", f"{bytes_per_sec / 1024 / 1024:.2f} MB/s")
+        stats_table.add_row("Active Load", f"Threads: {security.active_threads} | Sockets: {security.active_sockets}", "")
+        stats_table.add_row("Reliability", f"{success_rate:.1f}%", "[green]STABLE[/green]" if success_rate > 95 else "[red]CRITICAL FAILURE[/red]" if success_rate == 0 else "[yellow]FLUCTUATING[/yellow]")
 
-        layout["stats"].update(Panel(stats_table, title="[bold magenta]📊 Attack Statistics[/bold magenta]", border_style="magenta", padding=(0, 1)))
+        self.layout["stats"].update(Panel(stats_table, title="[bold magenta]📊 Attack Mission Control[/bold magenta]", border_style="magenta"))
 
-        # System Resources
-        system_table = Table(show_header=True, header_style="bold yellow", show_edge=False)
-        system_table.add_column("Resource", style="cyan", width=12)
-        system_table.add_column("Usage", style="white", width=15)
-        system_table.add_column("Status", style="green", width=10)
+        # Update System Resources
+        system_table = Table(show_header=True, header_style="bold yellow", show_edge=False, expand=True)
+        system_table.add_column("Resource", style="cyan")
+        system_table.add_column("Usage", style="white")
+        system_table.add_column("Status", style="green")
 
-        cpu_status = "🟢" if cpu_percent < 80 else "🔴"
+        cpu_status = "�" if cpu_percent < 80 else "🔴"
         mem_status = "🟢" if memory_percent < 80 else "🔴"
 
-        system_table.add_row("CPU", f"{cpu_percent:.1f}%", cpu_status)
-        system_table.add_row("Memory", f"{memory_used:.1f}/{memory_total:.1f}GB", mem_status)
-        system_table.add_row("Network", "Active", "🟢")
+        system_table.add_row("Process CPU", f"{cpu_percent:.1f}%", cpu_status)
+        system_table.add_row("System RAM", f"{memory_percent:.1f}% ({memory_used:.1f}G/{memory_total:.1f}G)", mem_status)
 
-        layout["system"].update(Panel(system_table, title="[bold yellow]🖥️  System Resources[/bold yellow]", border_style="yellow", padding=(0, 1)))
+        self.layout["system"].update(Panel(system_table, title="[bold yellow]🖥️  System Resource Grid[/bold yellow]", border_style="yellow"))
 
-        # Progress Bar
-        progress_bar = Progress(
-            CyberSpinnerColumn(),
-            TextColumn("[bold blue]Progress:[/bold blue]"),
-            BarColumn(bar_width=30, complete_style="green", finished_style="bold green"),
-            TaskProgressColumn(),
-            TextColumn(f"[bold white]{time_info}[/bold white]"),
-        )
+        # Update Progress Bar (Smooth Static Render)
+        done = int(progress_percent / 100 * 40)
+        bar = "[bold green]█" * done + "[dim white]█" * (40 - done)
+        
+        self.layout["progress"].update(Panel(
+            Align.center(f"{bar} [bold white]{progress_percent:.1f}%[/bold white]"),
+            title="[bold blue]⏳ Overall Task Completion[/bold blue]", 
+            border_style="blue"
+        ))
 
-        task = progress_bar.add_task(
-            "Attack Progress",
-            total=100,
-            completed=progress_percent
-        )
-
-        layout["progress"].update(Panel(progress_bar, title="[bold blue]⏳ Attack Progress[/bold blue]", border_style="blue", padding=(0, 1)))
-
-        return layout
+        return self.layout
 
 # Global monitor instance
 current_monitor = None
@@ -367,8 +353,8 @@ class ModernCLI:
         bottom_grid.add_column(ratio=2) # Logs
         
         bottom_grid.add_row(
-            Panel(services_table, title="[bold blue]🛰️  Active Services[/bold blue]", border_style="blue"),
-            Panel(log_content, title="[bold yellow]🕒 System Logs[/bold yellow]", border_style="yellow", height=10)
+            Panel(services_table, title="[bold blue][SAT] Active Services[/bold blue]", border_style="blue"),
+            Panel(log_content, title="[bold yellow][TIME] System Logs[/bold yellow]", border_style="yellow", height=10)
         )
         
         layout_content.add_row(bottom_grid)
@@ -774,7 +760,7 @@ class ModernCLI:
             if ModernCLI.c2_server and ModernCLI.c2_server.running:
                 console.clear()
                 console.print(Panel(
-                    "[bold yellow]🛰️  IP-HUNTER INTERACTIVE BOTNET SHELL[/bold yellow]\n\n"
+                    "[bold yellow][SAT] IP-HUNTER INTERACTIVE BOTNET SHELL[/bold yellow]\n\n"
                     "[white]Commands:[/white]\n"
                     "• [cyan]list[/cyan]             - Show all connected bots\n"
                     "• [cyan]ping[/cyan]             - Ping all bots\n"
@@ -897,19 +883,20 @@ class ModernCLI:
         current_monitor.start_monitoring()
 
         # Start aesthetic attack animation sequence
-        with create_cyber_progress("[bold cyan]🛰️  CALIBRATING ATTACK VECTORS...[/bold cyan]") as progress:
+        from src.utils.ui import create_cyber_progress
+        with create_cyber_progress("[bold cyan][SAT] CALIBRATING ATTACK VECTORS...[/bold cyan]") as progress:
             task = progress.add_task("Calibrating", total=100)
             
             time.sleep(0.4)
-            console.print("[dim white]  > Allocating thread pools...[/]")
+            progress.console.print("[dim white]  > Allocating thread pools...[/]")
             progress.update(task, advance=30)
             
             time.sleep(0.3)
-            console.print("[dim white]  > Establishing bypass tunnels...[/]")
+            progress.console.print("[dim white]  > Establishing bypass tunnels...[/]")
             progress.update(task, advance=30)
             
             time.sleep(0.4)
-            console.print("[dim white]  > Finalizing synchronization...[/]")
+            progress.console.print("[dim white]  > Finalizing synchronization...[/]")
             progress.update(task, advance=40)
 
         console.print("[bold bright_green]🚀 ATTACK SEQUENCE INITIALIZED![/bold bright_green]")
@@ -927,17 +914,18 @@ class ModernCLI:
 
         # Start real-time monitoring display
         try:
-            with Live(current_monitor.get_stats_panel(), refresh_per_second=2, screen=True) as live:
+            # Prime CPU stats
+            psutil.cpu_percent()
+            
+            with Live(current_monitor.get_stats_panel(), refresh_per_second=4, screen=True) as live:
                 start_time = time.time()
                 while time.time() - start_time < params["duration"]:
                     # Check if max requests reached
                     if params.get("max_requests", 0) > 0 and current_monitor.packets_sent >= params["max_requests"]:
                         break
-                    
-                    live.update(current_monitor.get_stats_panel())
-                    time.sleep(0.5)
 
-                    # Check for keyboard interrupt
+                    live.update(current_monitor.get_stats_panel())
+                    time.sleep(0.1)
                     try:
                         import select
                         import sys

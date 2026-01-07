@@ -38,6 +38,7 @@ def grab_banner(target, port):
 
 def port_scanner(target, ports, threads=10, stealth=True):
     """Professional Multi-Threaded Stealth (SYN) Port Scanner"""
+    from src.utils.ui import create_cyber_progress
     mode = "STEALTH (SYN)" if stealth else "FULL (CONNECT)"
     add_system_log(f"[bold cyan]SCAN:[/] Running {mode} scan on {target}")
     
@@ -108,14 +109,23 @@ def port_scanner(target, ports, threads=10, stealth=True):
         if p in open_ports:
             banner = open_ports[p]
             service_desc = COMMON_PORTS.get(p, "Unknown Service")
+            
+            # --- PROFESSIONAL ENHANCEMENT: Risk Level Detection ---
+            risk_level = "[green]LOW[/]"
+            high_risk_ports = [21, 23, 135, 139, 445, 3389, 5900]
+            if p in high_risk_ports:
+                risk_level = "[bold red]HIGH RISK[/]"
+            elif p in [80, 443, 8080]:
+                risk_level = "[yellow]MEDIUM[/]"
+
             with table_lock:
                 results_table.add_row(
                     str(p), 
-                    service_desc,
+                    f"{service_desc} ({risk_level})",
                     "OPEN (Active)", 
                     banner if banner != "No Banner" else "[dim]No Banner Data[/dim]"
                 )
-            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_desc})")
+            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_desc}) - Risk: {risk_level}")
         progress.advance(task)
         if stealth: time.sleep(random.uniform(0.01, 0.05))
 
@@ -130,6 +140,7 @@ def port_scanner(target, ports, threads=10, stealth=True):
 
 def network_scanner(threads=250, subnet=None):
     """Modern Network Discovery with ARP for local subnets & Ping Sweep for remote subnets"""
+    from src.utils.ui import create_cyber_progress
     add_system_log("[bold cyan]SCAN:[/] Initiating network-wide discovery...")
 
     # Determine local subnet
@@ -156,7 +167,7 @@ def network_scanner(threads=250, subnet=None):
         # Local subnet: Use ARP
         with Progress(
             CyberSpinnerColumn(),
-            TextColumn("[bold green]🛰️  Broadcasting ARP Requests...[/]"),
+            TextColumn("[bold green][SAT] Broadcasting ARP Requests...[/]"),
             console=console,
             transient=True
         ) as progress:
