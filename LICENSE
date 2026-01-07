@@ -2,58 +2,73 @@ PROPRIETARY AND CONFIDENTIAL
 Copyright (c) 2026 Nattapong Tapachoom. All rights reserved.
 
 --------------------------------------------------------------------------------
-TERMS OF USE AND DISTRIBUTION
+TERMS OF USE AND DISTRIBUTION - PROPRIETARY LICENSE AGREEMENT
 --------------------------------------------------------------------------------
 
-This software and all associated source code, documentation, and derived assets 
-(collectively referred to as the "Software") are the exclusive intellectual property 
-of Nattapong Tapachoom. The Software is protected by national copyright laws, 
-international treaties, and other intellectual property regulations.
+1. OWNERSHIP: This software and all associated source code, documentation, and 
+   derived assets (collectively "Software") are the exclusive intellectual property 
+   of Nattapong Tapachoom. All rights not expressly granted are reserved.
 
-RESTRICTIONS
-Unless expressly authorized in writing by Nattapong Tapachoom, you are strictly 
-prohibited from:
+2. GRANT OF LICENSE: This is a restricted, non-transferable, and revocable 
+   license for personal use only. Commercial use, resale, or sub-licensing 
+   is strictly prohibited without prior written consent.
 
-1. REDISTRIBUTION: Copying, publishing, or distributing the Software or any portion 
-   thereof to any third party, whether for commercial or non-commercial purposes.
-2. MODIFICATION: Altering, adapting, merging, translating, or creating derivative 
-   works based upon the Software.
-3. REVERSE ENGINEERING: Decompiling, disassembling, or attempting to derive the 
-   original source code of the Software.
+3. RESTRICTIONS: Unless expressly authorized in writing by the Developer, you are 
+   strictly prohibited from:
+   A. REDISTRIBUTION: Publishing, sharing, or leaking the Software to any public 
+      or private platforms (GitHub, Telegram, Forums, etc.).
+   B. MODIFICATION: Altering, obfuscating, or removing any copyright notices, 
+      branding, or telemetry/security features.
+   C. REVERSE ENGINEERING: Decompiling or attempting to crack the Software.
 
-ENFORCEMENT
-Any unauthorized use, duplication, or distribution constitutes an infringement of 
-copyright and will result in immediate termination of any granted access. The 
-copyright holder reserves the right to seek all remedies available under civil 
-and criminal law to the maximum extent permissible.
+4. AUDIT & TELEMETRY: The Software includes built-in security auditing mechanisms. 
+   By using this Software, you acknowledge and agree that non-personal execution 
+   data (IP, device info) may be transmitted to the Developer to verify 
+   compliance with this License.
 
-DISCLAIMER OF LIABILITY
-The developer assumes no responsibility or liability for any damages, legal 
-consequences, or actions taken by third parties arising from the use of this 
-Software. The user assumes all risks associated with its operation. Any 
-unauthorized exploitation or redistribution will be prosecuted to the 
-fullest extent of the law.
+5. NO WARRANTY: The Software is provided "AS IS" without any warranties of any kind, 
+   express or implied. The Developer does not guarantee that the Software will 
+   meet your requirements or be error-free.
+
+6. LIMITATION OF LIABILITY: Under no circumstances shall Nattapong Tapachoom be 
+   liable for any direct, indirect, incidental, or consequential damages 
+   (including legal fees or criminal repercussions) arising from the use or 
+   misuse of this Software.
+
+7. GOVERNING LAW: This Agreement is governed by the laws of the Kingdom of 
+   Thailand. Any legal action shall be filed within the jurisdiction of the 
+   Provincial Courts of Thailand.
+
+8. ENFORCEMENT: Any violation of this Agreement will result in immediate 
+   termination of use and will be prosecuted to the maximum extent of the law 
+   under the Computer-Related Crime Act and Copyright Act of Thailand.
 
 --------------------------------------------------------------------------------
-ประกาศสงวนลิขสิทธิ์ (ฉบับภาษาไทย)
+ประกาศสงวนลิขสิทธิ์และข้อกำหนดการใช้งาน (ฉบับภาษาไทย)
 --------------------------------------------------------------------------------
 
 ลิขสิทธิ์ © 2569 ณัฐพงศ์ ตะปะชุม — สงวนลิขสิทธิ์ตามกฎหมาย
 
-ซอฟต์แวร์และรหัสต้นฉบับ (Source Code) นี้เป็นกรรมสิทธิ์แต่เพียงผู้เดียวของ 
-ณัฐพงศ์ ตะปะชุม ซึ่งได้รับความคุ้มครองภายใต้พระราชบัญญัติลิขสิทธิ์และกฎหมาย
-คุ้มครองทรัพย์สินทางปัญญา
+1. กรรมสิทธิ์ในซอฟต์แวร์: ซอฟต์แวร์ รหัสต้นฉบับ และเอกสารประกอบทั้งหมด เป็นกรรมสิทธิ์
+   ของ ณัฐพงศ์ ตะปะชุม แต่เพียงผู้เดียว ได้รับการคุ้มครองตาม พ.ร.บ. ลิขสิทธิ์
 
-ข้อกำหนดและเงื่อนไข:
-1. ห้ามมิให้ทำซ้ำ คัดลอก หรือแจกจ่าย: ไม่ว่าจะเป็นส่วนหนึ่งส่วนใดหรือทั้งหมด 
-   เพื่อการค้าหรือเพื่อวัตถุประสงค์อื่นใดโดยไม่ได้รับอนุญาต
-2. ห้ามมิให้แก้ไขหรือดัดแปลง: รวมถึงการสร้างงานต่อเนื่องจากรหัสต้นฉบับนี้ 
-   โดยไม่ได้รับความยินยอมเป็นลายลักษณ์อักษรจากเจ้าของลิขสิทธิ์
-3. ห้ามมิให้เผยแพร่โดยไม่ได้รับสิทธิ์: การกระทำใดๆ ที่เป็นการละเมิดลิขสิทธิ์
-   จะถูกดำเนินคดีทางกฎหมายขั้นสูงสุด ทั้งทางแพ่งและทางอาญา โดยไม่มีข้อยกเว้น
+2. ข้อห้ามในการใช้งาน:
+   ก. ห้ามทำซ้ำหรือแจกจ่าย: ห้ามนำส่วนหนึ่งส่วนใดไปเผยแพร่ในที่สาธารณะหรือกลุ่มปิด 
+      ไม่ว่าจะเป็นการแจกฟรีหรือเพื่อการค้า
+   ข. ห้ามดัดแปลงหรือแก้ไข: ห้ามลบเครื่องหมายการค้า ชื่อผู้พัฒนา หรือระบบตรวจสอบ
+      ความปลอดภัย (Telemetry) ออกจากรหัสต้นฉบับ
+   ค. ห้ามดัดแปลงเพื่อจำหน่าย: การนำรหัสไปใช้หาผลประโยชน์ทางการเงินถือเป็นความผิดร้ายแรง
 
-**ข้อจำกัดความรับผิดชอบ (Disclaimer):**
-ผู้พัฒนาจะไม่รับผิดชอบต่อความเสียหาย ผลกระทบ หรือการกระทำทางกฎหมายใดๆ ที่เกิดขึ้นจากการนำ
-ซอฟต์แวร์นี้ไปใช้งานในทุกกรณี ผู้ใช้บริการต้องยอมรับความเสี่ยงด้วยตนเองทั้งสิ้น หากมีการตรวจพบว่ามี
-การนำไปใช้งานในทางที่ผิด หรือมีการแจกจ่ายโดยไม่ได้รับอนุญาต เจ้าของลิขสิทธิ์จะดำเนินคดีตาม
-กฎหมายให้ถึงที่สุด
+3. ระบบการตรวจสอบ: ซอฟต์แวร์นี้มีระบบตรวจสอบสิทธิ์การใช้งาน (Audit System) 
+   ซึ่งจะมีการส่งข้อมูลพื้นฐานการทำงานกลับไปยังผู้พัฒนาเพื่อป้องกันการละเมิดสิทธิ์
+
+4. การจำกัดความรับผิดชอบ: ผู้พัฒนา "ไม่รับผิดชอบต่อผลกระทบใดๆ" ที่เกิดขึ้นจากการใช้
+   ซอฟต์แวร์นี้ในทางที่ผิดกฎหมาย ผู้ใช้ต้องเป็นผู้รับผิดชอบต่อหน่วยงานรัฐและคู่กรณี
+   ด้วยตนเองทั้งสิ้น
+
+5. การดำเนินคดีทางกฎหมาย: หากพบการละเมิดเงื่อนไขข้างต้น ผู้พัฒนาจะดำเนินคดีตาม
+   กฎหมายสูงสุด ทั้งทางแพ่งและทางอาญา (พ.ร.บ. คอมพิวเตอร์ และ พ.ร.บ. ลิขสิทธิ์) 
+   จนถึงที่สุด โดยไม่มีการยอมความใดๆ ทั้งสิ้น
+
+6. กฎหมายที่บังคับใช้: ข้อตกลงนี้ถูกบังคับใช้ภายใต้กฎหมายของราชอาณาจักรไทย
+   หากมีข้อพิพาทให้ขึ้นศาลภายในเขตอำนาจศาลของประเทศไทยเท่านั้น

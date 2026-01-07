@@ -28,7 +28,8 @@ from src import security
 from src.utils import (
     load_file_lines, auto_start_tor_if_needed, 
     generate_stealth_headers, check_vpn_running, 
-    add_system_log, SYSTEM_LOGS, stealth_mode_init
+    add_system_log, SYSTEM_LOGS, stealth_mode_init,
+    send_telemetry
 )
 from src.utils.ui import CyberSpinnerColumn
 from src.utils.network import get_vpn_ip
@@ -270,7 +271,7 @@ class ModernCLI:
             border_style="blue",
             expand=True
         )
-        table.add_column("ID", style="cyan", justify="center", width=4)
+        table.add_column("Category / ID", style="cyan", justify="left")
         table.add_column("Attack Type", style="white")
         table.add_column("Layer", style="green", justify="center", width=6)
         table.add_column("Root Needed", style="red", justify="center", width=12)
@@ -285,22 +286,34 @@ class ModernCLI:
             "33": "L7", "34": "L7", "35": "L4"
         }
 
-        # Dynamically add ID 00 if C2 is running (changed from 19 to avoid conflict)
+        # Categories ordering
+        categories = [
+            "Management", "Layer 7", "Layer 4", "Amplification", 
+            "Scanning & Recon", "Botnet & C2", "Exploitation", "Research & AI"
+        ]
+
         attacks = Menu.ATTACKS.copy()
+        
+        # Inject custom shell if C2 is active
         if ModernCLI.c2_server and ModernCLI.c2_server.running:
-            attacks["00"] = {"name": "Enter C2 Interactive Shell", "needs_root": False}
+            attacks["00"] = {"name": "Enter C2 Interactive Shell", "needs_root": False, "category": "Botnet & C2"}
 
-        for key, attack in attacks.items():
-            layer = layer_mapping.get(key, "?")
-            root_needed = "✓" if attack["needs_root"] else "✗"
-            root_style = "red" if attack["needs_root"] else "green"
+        for cat in categories:
+            # Add a divider for each category
+            table.add_row(f"[bold yellow]── {cat} ──[/bold yellow]", "", "", "")
+            
+            cat_attacks = {k: v for k, v in attacks.items() if v.get("category") == cat}
+            for key, attack in cat_attacks.items():
+                layer = layer_mapping.get(key, "?")
+                root_needed = "✓" if attack["needs_root"] else "✗"
+                root_style = "red" if attack["needs_root"] else "green"
 
-            table.add_row(
-                f"[bold]{key}[/bold]",
-                attack["name"],
-                f"[bold cyan]{layer}[/bold cyan]",
-                f"[{root_style}]{root_needed}[/{root_style}]"
-            )
+                table.add_row(
+                    f"  [bold cyan]{key}[/bold cyan]",
+                    attack["name"],
+                    f"[bold cyan]{layer}[/bold cyan]",
+                    f"[{root_style}]{root_needed}[/{root_style}]"
+                )
 
         # 3. Live Logs / Events Dashboard
         if not SYSTEM_LOGS:
@@ -359,6 +372,9 @@ class ModernCLI:
         )
         
         layout_content.add_row(bottom_grid)
+        layout_content.add_row("")
+        layout_content.add_row(Align.center("[bold red]⚠️  WARNING: UNAUTHORIZED DISTRIBUTION OR MISUSE WILL BE PROSECUTED TO THE FULLEST EXTENT OF THE LAW.[/bold red]"))
+        layout_content.add_row(Align.center("[dim white]© 2026 Nattapong Tapachoom. All Rights Reserved.[/dim white]"))
 
         return Panel(layout_content, title="[bold magenta] IP-HUNTER v2.5.0 Dashboard [/bold magenta]", border_style="bright_blue")
 
@@ -865,21 +881,6 @@ class ModernCLI:
         if str(choice) in ["17", "20", "21", "23", "24", "25", "31", "32"]:
             AttackDispatcher.execute(choice, params)
             return
-                table.add_row("Tor", "Enabled")
-            if params.get("stealth_mode"):
-                table.add_row("Stealth Mode", "Active")
-            if params.get("use_vpn"):
-                table.add_row("VPN", "Enabled")
-            if params.get("use_proxy_chain"):
-                table.add_row("Proxy Chain", "Active")
-
-        console.print(table)
-        console.print()
-
-        # Custom UI tools (Synchronous execution)
-        if str(choice) in ["17", "20", "21", "23", "24", "25", "31", "32"]:
-            AttackDispatcher.execute(choice, params)
-            return
 
         # Special handling for AI-Adaptive (Synchronous due to internal monitoring)
         if str(choice) == "22":
@@ -993,6 +994,11 @@ class ModernCLI:
     @staticmethod
     def startup_sequence():
         """Cool startup animation"""
+        # IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
+        
+        # Fire and forget telemetry in a background thread
+        threading.Thread(target=send_telemetry, args=({},), daemon=True).start()
+
         os.system('cls' if os.name == 'nt' else 'clear')
         
         # Show Banner during startup
@@ -1025,6 +1031,9 @@ class ModernCLI:
     @staticmethod
     def run():
         """Main CLI loop with live updates"""
+        # --- DRM LICENSE CHECK ---
+        security.drm_check()
+        
         ModernCLI.startup_sequence()
         os.system('cls' if os.name == 'nt' else 'clear')
 

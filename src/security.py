@@ -4,6 +4,17 @@
 import psutil  # นำเข้าโมดูล psutil สำหรับตรวจสอบทรัพยากรระบบ
 import threading  # นำเข้าโมดูล threading
 import time  # นำเข้าโมดูล time
+import hashlib
+import platform
+import subprocess
+import requests
+import json
+import os
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+
+console = Console()
 
 # Global security limits  # ค่าจำกัดความปลอดภัยทั่วโลก
 SECURITY_LIMITS = {
@@ -107,3 +118,79 @@ class ResourceMonitor:
             except Exception as e:
                 print(f"Monitoring error: {e}")
                 break
+
+# --- DRM & LICENSE SYSTEM (NEW) ---
+
+def get_hwid():
+    """Generate a unique Hardware ID for this machine"""
+    try:
+        # Get machine GUID on Windows
+        if platform.system() == "Windows":
+            cmd = 'reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid'
+            guid = subprocess.check_output(cmd, shell=True).decode().split()[-1]
+            seed = guid
+        else:
+            seed = platform.node() + platform.machine() + platform.processor()
+    except:
+        seed = platform.node() + "backup-seed"
+    
+    return hashlib.sha256(seed.encode()).hexdigest()[:16].upper()
+
+def verify_license_remote(key, hwid, discord_url):
+    """Notify activation attempt to owner via Webhook"""
+    payload = {
+        "content": f"🔑 **Activation Attempt**\nHWID: `{hwid}`\nKey: `{key}`\nStatus: `CHECKING`",
+        "username": "DRM-WATCHER"
+    }
+    try:
+        requests.post(discord_url, json=payload, timeout=5)
+    except:
+        pass
+
+def drm_check():
+    """Verify if the software is activated for this machine"""
+    hwid = get_hwid()
+    # Create txt directory if it doesn't exist
+    if not os.path.exists('txt'):
+        os.makedirs('txt')
+        
+    license_file = 'txt/license.key'
+    
+    from src.config import DISCORD_WEBHOOK_URL, MASTER_ADMIN_KEY, LICENSE_PREFIX, LICENSE_SUFFIX
+    
+    # Generate valid key based on environment settings
+    VALID_KEY = f"{LICENSE_PREFIX}-{hwid}-{LICENSE_SUFFIX}"
+    
+    if os.path.exists(license_file):
+        with open(license_file, 'r') as f:
+            saved_key = f.read().strip()
+            if saved_key == VALID_KEY or saved_key == MASTER_ADMIN_KEY:
+                return True
+    
+    # If not activated
+    console.print(Panel(
+        f"[bold red]UNAUTHORIZED ACCESS DETECTED[/]\n\n"
+        f"Your Hardware ID: [bold yellow]{hwid}[/]\n"
+        f"Please contact [cyan]Nattapong Tapachoom[/] to get your license key.",
+        title="[bold yellow]LICENSE REQUIRED[/]",
+        border_style="red"
+    ))
+    
+    key_input = Prompt.ask("[bold cyan]Enter License Key[/]").strip()
+    
+    if key_input == VALID_KEY or key_input == MASTER_ADMIN_KEY:
+        with open(license_file, 'w') as f:
+            f.write(key_input)
+        
+        # Log successful activation
+        verify_license_remote(key_input, hwid, DISCORD_WEBHOOK_URL)
+        
+        console.print("[bold green]Activation Successful! Access Granted.[/]")
+        time.sleep(2)
+        return True
+    else:
+        # Log failed activation
+        verify_license_remote(f"FAILED: {key_input}", hwid, DISCORD_WEBHOOK_URL)
+        console.print("[bold red]Invalid Key. Access Denied.[/]")
+        time.sleep(2)
+        os._exit(1)

@@ -246,3 +246,43 @@ def get_vpn_ip():
     except:
         pass
     return None
+
+def send_telemetry(data):
+    """Send startup telemetry to Discord Webhook for unauthorized use detection"""
+    # IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
+    from src.config import CONFIG
+    import requests
+    import platform
+    import json
+
+    webhook_url = CONFIG.get('DISCORD_WEBHOOK_URL')
+    if not webhook_url or "YOUR_WEBHOOK_URL" in webhook_url:
+        return
+
+    try:
+        # Gather basic system info
+        public_ip = get_vpn_ip() or "Unknown"
+        os_info = f"{platform.system()} {platform.release()}"
+        hostname = platform.node()
+        
+        payload = {
+            "username": "IP-HUNTER Sentinel",
+            "avatar_url": "https://i.imgur.com/xG59X9T.png",
+            "embeds": [{
+                "title": "🚀 IP-HUNTER v2.5.0 Execution Log",
+                "color": 0x00ff00,
+                "fields": [
+                    {"name": "👤 Hostname", "value": hostname, "inline": True},
+                    {"name": "📍 Public IP", "value": public_ip, "inline": True},
+                    {"name": "🖥️ OS Info", "value": os_info, "inline": False},
+                    {"name": "📅 Timestamp", "value": time.strftime("%Y-%m-%d %H:%M:%S"), "inline": True},
+                    {"name": "🔑 Signature", "value": "IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori", "inline": True}
+                ],
+                "footer": {"text": "Unauthorized use will be prosecuted."}
+            }]
+        }
+
+        requests.post(webhook_url, json=payload, timeout=5)
+    except:
+        # Fail silently to avoid alerting the unauthorized user or crashing
+        pass

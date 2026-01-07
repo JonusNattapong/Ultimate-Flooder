@@ -1,7 +1,8 @@
 # ค่าคงที่และการตั้งค่าของ IP-HUNTER  # คอมเมนต์ภาษาไทยสำหรับไฟล์ config
 import os
 import dotenv
-dotenv.load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+# Load .env from project root
+dotenv.load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 # การตั้งค่าแอปพลิเคชัน  # คอมเมนต์ภาษาไทยสำหรับส่วนการตั้งค่า
 CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต่างๆของโปรแกรม
@@ -30,7 +31,20 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
     'OPENROUTER_API_KEY': os.getenv('OPEN_ROUTER'), # API Key สำหรับ OpenRouter AI Recon
+    'DISCORD_WEBHOOK_URL': os.getenv('DISCORD_WEBHOOK_URL'), # Webhook สำหรับแจ้งเตือนการใช้งาน (Telemetry)
+    'MASTER_ADMIN_KEY': os.getenv('MASTER_ADMIN_KEY'), # คีย์หลักสำหรับ Admin (ข้าม DRM)
+    'LICENSE_PREFIX': os.getenv('LICENSE_PREFIX'), # คำขึ้นต้นกุญแจ
+    'LICENSE_SUFFIX': os.getenv('LICENSE_SUFFIX'), # คำลงท้ายกุญแจ
 }
+
+# Export environment variables for easy access
+DISCORD_WEBHOOK_URL = CONFIG['DISCORD_WEBHOOK_URL']
+MASTER_ADMIN_KEY = CONFIG['MASTER_ADMIN_KEY']
+OPENROUTER_API_KEY = CONFIG['OPENROUTER_API_KEY']
+LICENSE_PREFIX = CONFIG['LICENSE_PREFIX']
+LICENSE_SUFFIX = CONFIG['LICENSE_SUFFIX']
+
+# IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
 
 def update_config_key(key_name, value):
     """Dynamically update a key in src/config.py file"""
