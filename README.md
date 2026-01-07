@@ -1,5 +1,8 @@
 # IP-HUNTER v2.5.0 | Advanced DDoS Toolkit & Security Suite
 
+**© 2026 Nattapong Tapachoom. สงวนลิขสิทธิ์ทั้งหมด.**
+**[NOT FOR REDISTRIBUTION OR MODIFICATION]**
+
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 
 ## ⚠️ Disclaimer
@@ -263,3 +266,10 @@ VPN → Tor → Target
 5. **Document Everything**: Keep records of authorization
 
 **Remember: The best anonymity comes from not needing it in the first place. Always act ethically and legally.**
+## 📜 License & Copyright
+
+**Copyright (c) 2026 Nattapong Tapachoom**
+
+สงวนลิขสิทธิ์ทั้งหมด ไม่อนุญาตให้นำไปแก้ไข ดัดแปลง หรือแจกจ่ายต่อโดยเด็ดขาด การกระทำใดๆ ที่ไม่ได้รับอนุญาตถือเป็นการละเมิดลิขสิทธิ์และจะถูกดำเนินคดีตามกฎหมาย
+
+Full Rights Reserved. Modification or distribution of this software is strictly prohibited under any circumstances.
