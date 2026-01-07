@@ -1,9 +1,12 @@
 import requests
 import re
-from rich.console import Console
+import time
+from rich.live import Live
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from src.utils.logging import add_system_log
+from src.utils.ui import create_cyber_progress
 
 def ip_tracker(target_ip=None):
     """Deep OSINT IP Tracker - Get detailed geolocation and network intel"""
@@ -36,11 +39,13 @@ def ip_tracker(target_ip=None):
         return
 
     console.print(f"\n[bold yellow]  🛰️  INITIATING DEEP TRACKING: {target_ip}[/]")
-    with console.status("[bold cyan]INTELLIGENCE GATHERING FROM OSINT DATABASE...[/bold cyan]", spinner="pulse"):
+    with create_cyber_progress("[bold cyan]INTELLIGENCE GATHERING FROM OSINT DATABASE...[/bold cyan]") as progress:
+        task = progress.add_task("OSINT Tracking")
         try:
             fields = "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting,query,reverse"
             response = requests.get(f"http://ip-api.com/json/{target_ip}?fields={fields}", timeout=10)
             data = response.json()
+            progress.update(task, advance=100)
             
             if data.get('status') == 'fail':
                 console.print(f"[bold red] Tracking Failed:[/] {data.get('message', 'Unknown error')}")
@@ -66,42 +71,54 @@ def ip_tracker(target_ip=None):
         except Exception as e:
             console.print(f"[bold red] Error connected to OSINT server:[/] {str(e)}")
 
+from rich.live import Live
+from rich.console import Console, Group
+from rich.table import Table
+from rich.panel import Panel
+from src.utils.logging import add_system_log
+from src.utils.ui import create_cyber_progress
+
 def domain_osint(domain):
-    """Information gathering for domains (Subdomains, DNS)"""
+    """Information gathering for domains (Subdomains, DNS) with Live Streaming"""
     add_system_log(f"[bold cyan]OSINT:[/] Hunting subdomains for {domain}")
     console = Console()
-    console.print(f"\n[bold cyan]🌐 Domain Intel Hunting: {domain}[/bold cyan]")
     
-    # 1. Subdomain Lookup (Using hackertarget API)
-    try:
-        sub_resp = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
-        subdomains = sub_resp.text.split("\n")
-    except:
-        subdomains = ["Error fetching subdomains"]
+    results_table = Table(title=f"🌐 [bold white]Domain Intelligence Hunter:[/] [cyan]{domain}[/]", border_style="cyan", expand=True)
+    results_table.add_column("Category", style="cyan", width=20)
+    results_table.add_column("Details / Findings", style="white")
 
-    # 2. DNS Lookup (A, MX, TXT)
-    try:
-        dns_resp = requests.get(f"https://api.hackertarget.com/dnslookup/?q={domain}", timeout=10)
-        dns_info = dns_resp.text
-    except:
-        dns_info = "Error fetching DNS info"
+    progress = create_cyber_progress(f"[cyan]Hunting Vectors for {domain}...[/]", total=2)
+    task = progress.add_task("Hunting", total=2)
 
-    table = Table(title=f"OSINT REPORT: {domain}", border_style="blue")
-    table.add_column("Category", style="cyan")
-    table.add_column("Results", style="white")
-    
-    sub_count = len([s for s in subdomains if s.strip()])
-    table.add_row("Subdomains Found", str(sub_count))
-    
-    top_subs = "\n".join([s.split(",")[0] for s in subdomains[:10]])
-    table.add_row("Top Subdomains", top_subs)
-    
-    console.print(Panel(table, border_style="blue"))
-    
-    dns_table = Table(title="DNS Records", show_header=False, border_style="dim")
-    dns_table.add_column("Data")
-    for line in dns_info.split("\n")[:15]:
-        if line.strip(): dns_table.add_row(line)
+    with Live(Group(progress, results_table), refresh_per_second=4):
+        # 1. Subdomain Lookup
+        try:
+            sub_resp = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+            subdomains = [s for s in sub_resp.text.split("\n") if s.strip()]
+            sub_count = len(subdomains)
+            top_subs = ", ".join([s.split(",")[0] for s in subdomains[:8]]) + "..."
+            results_table.add_row("Subdomains Found", f"[bold green]{sub_count}[/bold green]")
+            results_table.add_row("Major Entry Points", top_subs)
+        except:
+            results_table.add_row("Subdomains", "[red]API Fetch Error[/red]")
+        
+        progress.advance(task)
+        time.sleep(0.5)
+
+        # 2. DNS Lookup
+        try:
+            dns_resp = requests.get(f"https://api.hackertarget.com/dnslookup/?q={domain}", timeout=10)
+            dns_info = dns_resp.text
+            dns_lines = [l for l in dns_info.split("\n") if l.strip()][:10]
+            results_table.add_row("DNS Snapshot", "\n".join(dns_lines))
+        except:
+            results_table.add_row("DNS Intel", "[red]API Fetch Error[/red]")
+            
+        progress.advance(task)
+        time.sleep(0.5)
+        progress.stop()
+
+    console.print(Panel(f"[bold green]OSINT Reconnaissance complete for {domain}. Found {sub_count if 'sub_count' in locals() else 0} subdomains.[/]", border_style="green"))
         
     console.print(Panel(dns_table, border_style="cyan", title="DNS Intel"))
 

@@ -3,15 +3,21 @@ import os
 import json
 import time
 import random
+import threading
 from datetime import datetime
 from scapy.all import ARP, Ether, srp, IP, TCP, sr1, conf
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.progress import track
+from rich.live import Live
+from rich.console import Group
 from src.utils.logging import add_system_log
+from src.utils.ui import create_cyber_progress, CyberSpinnerColumn
+from src.utils.network import COMMON_PORTS
+import concurrent.futures
 
 console = Console()
+table_lock = threading.Lock() # Lock for thread-safe UI updates
 
 def grab_banner(target, port):
     """Attempt to grab a service banner from an open port"""
@@ -47,19 +53,24 @@ def port_scanner(target, ports, threads=10, stealth=True):
     random.shuffle(ports)
     
     open_ports = {}
+    scapy_lock = threading.Lock()
     
     def syn_scan(p):
-        """Half-open SYN scanning logic"""
+        """Half-open SYN scanning logic (Thread-safe for Windows)"""
         try:
             # Send SYN packet
             syn_pkt = IP(dst=target)/TCP(dport=p, flags="S")
-            resp = sr1(syn_pkt, timeout=1, verbose=0)
+            
+            with scapy_lock:
+                resp = sr1(syn_pkt, timeout=1, verbose=0)
             
             if resp and resp.haslayer(TCP):
                 if resp.getlayer(TCP).flags == 0x12: # SA (SYN-ACK)
                     # Port is open! Send RST to close the half-open connection
                     rst_pkt = IP(dst=target)/TCP(dport=p, flags="R")
-                    sr1(rst_pkt, timeout=0.5, verbose=0)
+                    with scapy_lock:
+                        sr1(rst_pkt, timeout=0.5, verbose=0)
+                    
                     banner = grab_banner(target, p)
                     open_ports[p] = banner
         except:
@@ -76,48 +87,45 @@ def port_scanner(target, ports, threads=10, stealth=True):
             sock.close()
         except: pass
 
-    import threading
-    thread_list = []
+    import concurrent.futures
     scan_func = syn_scan if stealth else connect_scan
     
     console.print(f"\n[bold yellow]🔍 Initiating {mode} Scan against {target}[/bold yellow]")
     
-    for p in track(ports, description=f"[cyan]Hunting Ports...[/]"):
-        t = threading.Thread(target=scan_func, args=(p,))
-        t.start()
-        thread_list.append(t)
-        
-        # Adaptive Delay for Stealth
+    # Live Results Table
+    results_table = Table(title=f"Advanced Port Audit: {target}", border_style="cyan", expand=True)
+    results_table.add_column("Port", style="yellow", width=10)
+    results_table.add_column("Service & Common Usage", style="cyan", width=35)
+    results_table.add_column("Status", style="green", width=15)
+    results_table.add_column("Banner / Detail", style="white")
+
+    progress = create_cyber_progress(f"[cyan]Hunting Ports on {target}...[/]", total=len(ports))
+    task = progress.add_task("Scanning", total=len(ports))
+    
+    def worker(p):
+        scan_func(p)
+        if p in open_ports:
+            banner = open_ports[p]
+            service_desc = COMMON_PORTS.get(p, "Unknown Service")
+            with table_lock:
+                results_table.add_row(
+                    str(p), 
+                    service_desc,
+                    "OPEN (Active)", 
+                    banner if banner != "No Banner" else "[dim]No Banner Data[/dim]"
+                )
+            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_desc})")
+        progress.advance(task)
         if stealth: time.sleep(random.uniform(0.01, 0.05))
 
-        if len(thread_list) >= threads:
-            for thread in thread_list: thread.join()
-            thread_list = []
-            
-    for t in thread_list: t.join()
-
-    table = Table(title=f"Advanced Port Audit: {target}", border_style="cyan")
-    table.add_column("Port", style="yellow")
-    table.add_column("Status", style="green")
-    table.add_column("Service/Banner", style="white")
-
-    common_services = {
-        21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 53: "DNS", 
-        80: "HTTP", 110: "POP3", 443: "HTTPS", 3306: "MySQL", 
-        3389: "RDP", 8080: "Proxy/Alt-HTTP"
-    }
+    with Live(Group(progress, results_table), refresh_per_second=4):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            executor.map(worker, ports)
 
     if not open_ports:
-        table.add_row("No open ports detected", "-", "-")
+        console.print(Panel("[bold red]No open ports detected.[/]", border_style="red"))
     else:
-        for p in sorted(open_ports.keys()):
-            banner = open_ports[p]
-            service_name = common_services.get(p, "Unknown")
-            display_info = f"{service_name} | {banner}" if banner != "No Banner" else service_name
-            table.add_row(str(p), "OPEN (Active)", display_info)
-            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_name})")
-
-    console.print(Panel(table, border_style="cyan", title=f"Audit Mode: {mode}"))
+        console.print(Panel("[bold green]Scan Completed Successfully.[/]", border_style="green"))
 
 def network_scanner(threads=250, subnet=None):
     """Modern Network Discovery with ARP & History Tracking"""
@@ -134,56 +142,89 @@ def network_scanner(threads=250, subnet=None):
         except:
             subnet = "192.168.1.0/24"
 
-    console.print(f"\n[bold cyan]📡 Network Discovery Path: {subnet}[/bold cyan]")
+    console.print(Panel(f"[bold cyan]📡 Network Discovery Path:[/] [yellow]{subnet}[/]", border_style="cyan"))
     
-    # ARP Scan
-    try:
-        ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=subnet), timeout=3, verbose=False)
-        results = []
-        for snd, rcv in ans:
-            results.append({'ip': rcv.psrc, 'mac': rcv.hwsrc})
-    except Exception as e:
-        console.print(f"[red]Error during ARP scan: {e}[/]")
+    # --- PHASE 1: ARP DISCOVERY WITH SPINNER ---
+    results = []
+    from rich.progress import Progress, TextColumn
+    with Progress(
+        CyberSpinnerColumn(),
+        TextColumn("[bold green]🛰️  Broadcasting ARP Requests...[/]"),
+        console=console,
+        transient=True
+    ) as progress:
+        progress.add_task("", total=None)
+        try:
+            ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=subnet), timeout=5, retry=2, verbose=False)
+            for snd, rcv in ans:
+                results.append({'ip': rcv.psrc, 'mac': rcv.hwsrc})
+        except Exception as e:
+            console.print(f"[red]Error during ARP scan: {e}[/]")
+            return
+
+    if not results:
+        console.print(Panel("[bold red]❌ No devices found on the network.[/bold red]", border_style="red"))
         return
 
-    # Basic Port Scan for found hosts
+    # --- PHASE 2: HOST EXPLORATION WITH LIVE OUTPUT ---
     final_results = []
+    
+    # 3. Final Table for Live Display
+    table = Table(
+        title=f"🌐 [bold white]Network Discovery Snapshot:[/] [cyan]{subnet}[/]", 
+        border_style="bright_blue",
+        header_style="bold magenta",
+        show_lines=True,
+        expand=True
+    )
+    table.add_column("IP Address", style="bold cyan")
+    table.add_column("MAC Address", style="magenta")
+    table.add_column("Hostname / Device Name", style="white")
+    table.add_column("Open Ports", style="yellow")
+
+    progress = create_cyber_progress("[bold white]🔍 Exploring Found Hosts...[/]", total=len(results))
+    task_id = progress.add_task("Exploring", total=len(results))
+
     def scan_host(ip, mac):
         hostname = "Unknown"
         try: hostname = socket.gethostbyaddr(ip)[0]
         except: pass
         
         open_ports = []
-        for p in [80, 443, 21, 22, 3389]:
+        # Check most common ports only for speed in local discovery
+        for p in [80, 443, 21, 22, 3389, 445, 135, 139]:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.5)
-            if s.connect_ex((ip, p)) == 0: open_ports.append(str(p))
+            s.settimeout(0.3)
+            if s.connect_ex((ip, p)) == 0:
+                service = COMMON_PORTS.get(p, str(p))
+                open_ports.append(f"{p}({service})")
             s.close()
         
-        final_results.append({
-            'ip': ip, 
-            'mac': mac, 
-            'hostname': hostname, 
-            'ports': open_ports
-        })
+        res = {'ip': ip, 'mac': mac, 'hostname': hostname, 'ports': open_ports}
+        final_results.append(res)
+        
+        # Update live table with lock
+        ports_str = ", ".join(open_ports) if open_ports else "[dim]None Detected[/dim]"
+        with table_lock:
+            table.add_row(ip, mac, hostname, ports_str)
+        add_system_log(f"[cyan]HOST DISCOVERED:[/] {ip} ({hostname})")
+        progress.advance(task_id)
 
-    import threading
-    threads_list = []
-    for r in results:
-        t = threading.Thread(target=scan_host, args=(r['ip'], r['mac']))
-        t.start()
-        threads_list.append(t)
-    
-    for t in threads_list: t.join()
+    with Live(Group(progress, table), refresh_per_second=4):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            executor.map(lambda r: scan_host(r['ip'], r['mac']), results)
 
-    # Display results
-    table = Table(title=f"Network Discovery: {subnet}", border_style="blue")
-    table.add_column("IP Address", style="cyan")
-    table.add_column("MAC Address", style="magenta")
-    table.add_column("Hostname", style="white")
-    table.add_column("Open Ports", style="yellow")
+    # --- PHASE 3: FINAL STATUS ---
+    console.print(Panel(f"[bold green]Network discovery complete for {subnet}. Found {len(final_results)} active devices.[/]", border_style="green"))
+    add_system_log(f"[bold green]SCAN COMPLETE:[/] Found {len(final_results)} active hosts in {subnet}")
 
-    for r in sorted(final_results, key=lambda x: x['ip']):
-        table.add_row(r['ip'], r['mac'], r['hostname'], ", ".join(r['ports']) or "None")
-
-    console.print(Panel(table, border_style="blue"))
+    # OPTIONAL: Ask to add to library
+    if final_results:
+        from src.modern_cli import ModernCLI
+        ans = console.input("\n[bold white]Add found targets to locked library? (y/n): [/]").strip().lower()
+        if ans == 'y':
+            for r in final_results:
+                if r['ip'] not in ModernCLI.locked_targets:
+                    ModernCLI.locked_targets.append(r['ip'])
+            console.print("[bold green]✅ Targets imported to Library (ID 0).[/bold green]")
+            time.sleep(1.5)

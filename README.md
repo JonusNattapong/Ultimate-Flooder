@@ -22,23 +22,54 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 
 ## 🚀 Attack Vectors
 
-1. **Layer 7 HTTP Flood (Basic)**: Standard GET/POST flooding.
-2. **Layer 7 Async HTTP Flood**: High-performance async requests with proxy support.
-3. **Layer 4 SYN Flood**: TCP protocol-level flooding (requires root).
-4. **Layer 4 UDP Flood**: High-velocity UDP packet bombardment (requires root).
-5. **Slowloris Attack**: Low-bandwidth connection exhaustion.
+### Application Layer (Layer 7)
+1. **HTTP Flood (Basic)**: Standard GET/POST flooding for web services.
+2. **Async HTTP Flood**: High-performance async requests with proxy support.
+5. **Slowloris Attack**: Low-bandwidth connection exhaustion using partial headers.
+8. **Cloudflare Bypass**: Specialized logic to circumvent WAF and CDN protection.
+12. **RUDY (R U Dead Yet?)**: Slow POST data submission to tie up threads.
+13. **HOIC Mode**: High Orbit Ion Cannon style multi-vector headers/methods.
+14. **HTTP/2 Rapid Reset**: Exploits stream cancellation in HTTP/2 (CVE-2023-44487).
+15. **Apache Killer**: Range header exhaustion targeting Apache servers.
+16. **Nginx Range DoS**: Overlapping range exploitation for Nginx.
+22. **AI-Adaptive Flood**: Smart flood that adjusts intensity based on server latency.
+33. **Mixed Vector Flood**: Randomized combination of L7 techniques in a single attack.
+34. **Slow Post Attack**: Advanced variant of RUDY with randomized drip-feeding.
+
+### Network Layer (Layer 4)
+3. **SYN Flood**: TCP protocol-level flooding with IP spoofing (requires root).
+4. **UDP Flood**: High-velocity UDP packet bombardment (requires root).
+19. **Hybrid ICMP Attack**: Combined ICMP Flood and Ping of Death exploit.
+35. **QUIC Flood**: Targets the modern HTTP/3 (QUIC) protocol.
+
+### Amplification & Reflection
 6. **NTP Amplification**: Protocol-specific reflection (requires root).
-7. **Botnet C2 Server**: Command and Control for managing distributed bots.
-8. **Cloudflare Bypass**: Specialized headers/logic to circumvent WAFs.
-9. **Memcached Amplification**: High-factor UDP reflection (requires root).
+9. **Memcached Amplification**: Massive UDP amplification factor (~50,000x).
 10. **SSDP Amplification**: UPnP discovery protocol reflection (requires root).
-11. **DNS Amplification**: Open resolver reflection (requires root).
-12. **RUDY (R U Dead Yet?)**: Slow POST data submission.
-13. **HOIC Mode**: Randomized multi-vector headers and methods.
-14. **HTTP/2 Rapid Reset**: Modern protocol exploit (CVE-2023-44487).
-15. **Apache Killer**: Specialized Range header exhaustion.
-16. **Nginx Range DoS**: Overlapping range exploitation.
-17. **Port Scanner**: Professional-grade multi-threaded security auditor.
+11. **DNS Amplification**: Exploiting open resolvers for traffic multiplication.
+
+### Infrastructure & Botnet
+7. **Botnet C2 Server**: Command and Control system for managing remote bots.
+18. **Local Bot Client**: Connects local machine to a C2 for distributed operation.
+00. **Interactive C2 Shell**: Management console for connected botnet nodes.
+
+### OSINT & Reconnaissance
+0. **Target Library**: Save and manage targets for quick-access (ID 0).
+17. **Advanced Port Scanner**: Multi-threaded auditor with service identification.
+20. **Network Discovery**: Comprehensive subnet scanner for active hosts.
+21. **IP Intel Tracker**: Deep geolocation and ASN intelligence gathering.
+25. **Domain OSINT**: Automated subdomain and DNS record harvester.
+31. **CVE Explorer**: Real-time vulnerability search via NVD/NIST databases.
+32. **Web Exposure Sniper**: Deep scan for leaked configs and exposed directories.
+
+### Cyber-Sec Toolkit
+23. **Vulnerability Scout**: Quick scans for misconfigured headers and common paths.
+24. **Brute Force Suite**: Credential audit tool for FTP, SSH, and HTTP.
+26. **Proxy Auto-Pilot**: Automated scraper and validator for public proxies.
+27. **WiFi Ghost Recon**: Nearby wireless signal monitoring (Windows netsh).
+28. **Live Packet Insight**: Real-time traffic sniffer and protocol analyzer.
+29. **Payload Laboratory**: Reverse shell generator for multiple languages.
+30. **Identity Cloak**: OpSec auditor and privacy checker.
 
 ## 🛠️ Requirements
 

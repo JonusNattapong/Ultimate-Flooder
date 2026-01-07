@@ -26,7 +26,7 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
         # เพิ่ม proxy อื่นๆ ได้ที่นี่
     ],
     'PROXY_CHAIN_ROTATION': True,  # หมุน proxy ใน chain แบบสุ่ม
-    'STEALTH_MODE': False,  # โหมด stealth ที่เพิ่ม randomization
+    'STEALTH_MODE': True,  # โหมด stealth ที่เพิ่ม randomization และลดการตรวจจับ
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
     'OPENROUTER_API_KEY': os.getenv('OPEN_ROUTER'), # API Key สำหรับ OpenRouter AI Recon

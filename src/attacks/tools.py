@@ -7,8 +7,8 @@ import re
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.progress import track
 from src.utils.logging import add_system_log
+from src.utils.ui import create_cyber_progress
 
 console = Console()
 
@@ -41,7 +41,13 @@ def proxy_autopilot():
         except: return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        results = list(track(executor.map(check_p, unique_proxies[:100]), description="Validating...", total=100))
+        with create_cyber_progress("Validating Proxies...", total=100) as progress:
+            task = progress.add_task("Validating")
+            futures = [executor.submit(check_p, p) for p in unique_proxies[:100]]
+            results = []
+            for f in concurrent.futures.as_completed(futures):
+                results.append(f.result())
+                progress.update(task, advance=1)
         valid_proxies = [r for r in results if r]
 
     table = Table(title="Live Proxy Report", border_style="green")

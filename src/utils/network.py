@@ -50,6 +50,18 @@ def generate_stealth_headers():
     
     return headers
 
+COMMON_PORTS = {
+    20: "FTP-Data", 21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+    53: "DNS", 80: "HTTP", 88: "Kerberos", 110: "POP3", 115: "SFTP",
+    135: "Microsoft RPC", 139: "NetBIOS", 143: "IMAP", 161: "SNMP",
+    389: "LDAP", 443: "HTTPS", 445: "Microsoft-DS (SMB)", 465: "SMTPS",
+    587: "SMTP Submission", 636: "LDAPS", 993: "IMAPS", 995: "POP3S",
+    1433: "SQL Server", 1521: "Oracle DB", 3306: "MySQL", 3389: "RDP",
+    5000: "Flask/Docker", 5432: "PostgreSQL", 5900: "VNC", 6379: "Redis",
+    8000: "HTTP-Alt", 8080: "HTTP-Proxy", 8443: "HTTPS-Alt", 27017: "MongoDB",
+    25565: "Minecraft", 30120: "FiveM/GTA", 7777: "SA-MP"
+}
+
 def check_tor_running(port=9050):
     """Check if Tor is running on specified port"""
     try:

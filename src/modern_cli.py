@@ -30,6 +30,7 @@ from src.utils import (
     generate_stealth_headers, check_vpn_running, 
     add_system_log, SYSTEM_LOGS, stealth_mode_init
 )
+from src.utils.ui import CyberSpinnerColumn
 from src.utils.network import get_vpn_ip
 from src.utils.system import cleanup_temp_files
 
@@ -154,6 +155,7 @@ class AttackMonitor:
 
         # Progress Bar
         progress_bar = Progress(
+            CyberSpinnerColumn(),
             TextColumn("[bold blue]Progress:[/bold blue]"),
             BarColumn(bar_width=30, complete_style="green", finished_style="bold green"),
             TaskProgressColumn(),
@@ -180,6 +182,72 @@ class ModernCLI:
     c2_server = None
     active_bot = None
     active_monitors = []
+    
+    # Locked Targets Library
+    locked_targets = []
+
+    @staticmethod
+    def manage_targets():
+        """Target Library Management Sub-menu"""
+        while True:
+            os.system('cls' if os.name == 'nt' else 'clear')
+            console.print(Align.center(Text(BANNER, style="bold cyan")))
+            
+            table = Table(title="💎 [bold magenta]Target Library (Locked Targets)[/bold magenta]", border_style="bright_blue", expand=True)
+            table.add_column("ID", style="cyan", justify="center", width=4)
+            table.add_column("Target Address", style="white")
+            table.add_column("Status", style="green", justify="center")
+
+            for idx, target in enumerate(ModernCLI.locked_targets, 1):
+                table.add_row(str(idx), target, "[bold green]LOCKED[/bold green]")
+            
+            if not ModernCLI.locked_targets:
+                table.add_row("-", "No targets in library", "[dim]Empty[/dim]")
+
+            console.print(table)
+            
+            console.print(Panel(
+                "[bold white][A][/bold white] Add New Target  |  "
+                "[bold white][D][/bold white] Delete Target  |  "
+                "[bold white][C][/bold white] Clear All  |  "
+                "[bold white][B][/bold white] Back to Menu",
+                title="[bold yellow] Target Management Options [/bold yellow]",
+                border_style="yellow"
+            ))
+
+            op = Prompt.ask("[bold cyan]Select Action[/bold cyan]", choices=["a", "d", "c", "b"], default="b").lower()
+            
+            if op == 'a':
+                new_target = Prompt.ask("[bold green]Enter Target (IP or URL)[/bold green]").strip()
+                if new_target and new_target not in ModernCLI.locked_targets:
+                    ModernCLI.locked_targets.append(new_target)
+                    add_system_log(f"[green]LIBRARY:[/] Added {new_target} to targets list")
+            elif op == 'd':
+                if not ModernCLI.locked_targets:
+                    continue
+                try:
+                    # Let user enter ID or Target Address
+                    del_input = Prompt.ask("[bold red]Enter ID or Target to remove[/bold red]").strip()
+                    
+                    if del_input.isdigit():
+                        idx = int(del_input) - 1
+                        if 0 <= idx < len(ModernCLI.locked_targets):
+                            removed = ModernCLI.locked_targets.pop(idx)
+                            add_system_log(f"[yellow]LIBRARY:[/] Removed {removed} from targets list")
+                    elif del_input in ModernCLI.locked_targets:
+                        ModernCLI.locked_targets.remove(del_input)
+                        add_system_log(f"[yellow]LIBRARY:[/] Removed {del_input} from targets list")
+                    else:
+                        console.print("[bold red]❌ Target/ID not found in library[/bold red]")
+                        time.sleep(1)
+                except Exception as e:
+                    console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                    time.sleep(1)
+            elif op == 'c':
+                ModernCLI.locked_targets.clear()
+                add_system_log("[red]LIBRARY:[/] Cleared all locked targets")
+            elif op == 'b':
+                break
 
     @staticmethod
     def display_banner():
@@ -213,13 +281,14 @@ class ModernCLI:
             "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
             "19": "CMD", "20": "Net", "21": "OSINT", "22": "AI", "23": "Scout",
             "24": "Cracker", "25": "OSINT", "26": "Proxy", "27": "WiFi",
-            "28": "Sniff", "29": "Exploit", "30": "OpSec", "31": "Vuln", "32": "Sniper"
+            "28": "Sniff", "29": "Exploit", "30": "OpSec", "31": "Vuln", "32": "Sniper",
+            "33": "L7", "34": "L7", "35": "L4"
         }
 
-        # Dynamically add ID 19 if C2 is running
+        # Dynamically add ID 00 if C2 is running (changed from 19 to avoid conflict)
         attacks = Menu.ATTACKS.copy()
         if ModernCLI.c2_server and ModernCLI.c2_server.running:
-            attacks["19"] = {"name": "Enter C2 Interactive Shell", "needs_root": False}
+            attacks["00"] = {"name": "Enter C2 Interactive Shell", "needs_root": False}
 
         for key, attack in attacks.items():
             layer = layer_mapping.get(key, "?")
@@ -260,6 +329,11 @@ class ModernCLI:
         if ModernCLI.c2_server:
             services_table.add_row("Bots Count", f"[white]{len(ModernCLI.c2_server.bots)}[/white]")
         
+        # Locked Targets Status
+        target_count = len(ModernCLI.locked_targets)
+        target_color = "green" if target_count > 0 else "red"
+        services_table.add_row("Locked Targets", f"[{target_color}]{target_count}[/{target_color}]")
+        
         # --- NEW LAYOUT REARRANGEMENT ---
         
         # Create a single column layout for everything
@@ -298,6 +372,9 @@ class ModernCLI:
                 ModernCLI.display_goodbye()
                 return None
 
+            if choice == "00" and ModernCLI.c2_server and ModernCLI.c2_server.running:
+                return "00"
+
             if choice not in Menu.ATTACKS:
                 console.print("[bold red]❌ Invalid choice! Please select a valid option.[/bold red]")
                 return ModernCLI.get_choice()
@@ -314,9 +391,20 @@ class ModernCLI:
     @staticmethod
     def get_attack_params(choice):
         """Get attack parameters with modern prompts"""
+        if choice == "00": # C2 Shell
+            return {}
+
+        if choice == "0": # Target Management
+            ModernCLI.manage_targets()
+            return None
+
         if choice == "20":  # Network Recon
-            # Fully automated skip params
-            return {"threads": 250, "subnet": None, "target": "local", "port": 0, "duration": 0, "proxies": []}
+            panel = Panel("[bold cyan]Network Recon / Discovery[/bold cyan]\n[dim]Scans the local network for active devices and services.[/dim]", border_style="cyan")
+            console.print(panel)
+            subnet = Prompt.ask("[bold yellow]Enter Subnet to Scan (e.g. 192.168.1.0/24 or 10.0.0.0/16)[/bold yellow]", default="auto")
+            subnet = None if subnet == "auto" else subnet
+            threads = IntPrompt.ask("[bold yellow]Parallel Scan Threads[/bold yellow]", default=250)
+            return {"threads": threads, "subnet": subnet, "target": "local", "port": 0, "duration": 0, "proxies": []}
 
         if choice == "21":  # IP Tracker
             ip = Prompt.ask("[bold cyan]Enter IP Address to Track (Leave empty for yours)[/bold cyan]").strip()
@@ -500,8 +588,8 @@ class ModernCLI:
             return None
 
         # Categorize attack
-        is_l7 = choice in ["1", "2", "5", "8", "12", "13", "14", "15", "16"]
-        is_l4 = choice in ["3", "4", "19"]
+        is_l7 = choice in ["1", "2", "5", "8", "12", "13", "14", "15", "16", "33", "34"]
+        is_l4 = choice in ["3", "4", "19", "35"]
         is_amp = choice in ["6", "9", "10", "11"]
 
         # Display category-specific panel
@@ -520,16 +608,36 @@ class ModernCLI:
 
         panel = Panel(
             f"[bold cyan]{attack_info['name']}[/bold cyan]\n"
-            f"[dim]{description}[/dim]\n\n"
-            f"[bold white]Target Example:[/bold white] [green]{example}[/green]",
+            f"[dim]{description}[/dim]",
             border_style="cyan",
             padding=(1, 2)
         )
         console.print(panel)
 
         # Target input
-        target_prompt = "[bold yellow]Target (IP or URL)[/bold yellow]" if is_l7 else "[bold yellow]Target (IP Address)[/bold yellow]"
-        target = Prompt.ask(target_prompt).strip()
+        if ModernCLI.locked_targets:
+            console.print(Panel(
+                f"[bold cyan]🎯 Target Locked Selection[/bold cyan]\n"
+                f"You have [bold yellow]{len(ModernCLI.locked_targets)}[/bold yellow] targets in your library.",
+                border_style="cyan"
+            ))
+            for i, t in enumerate(ModernCLI.locked_targets, 1):
+                console.print(f"  [bold cyan][{i}][/bold cyan] {t}")
+            
+            t_choice = Prompt.ask("[bold yellow]Select ID or enter NEW target address[/bold yellow]").strip()
+            
+            try:
+                t_idx = int(t_choice) - 1
+                if 0 <= t_idx < len(ModernCLI.locked_targets):
+                    target = ModernCLI.locked_targets[t_idx]
+                else:
+                    target = t_choice
+            except ValueError:
+                target = t_choice
+        else:
+            target_prompt = "[bold yellow]Target (IP or URL)[/bold yellow]" if is_l7 else "[bold yellow]Target (IP Address)[/bold yellow]"
+            target = Prompt.ask(target_prompt).strip()
+
         if not target:
             console.print("[bold red]❌ Target cannot be empty![/bold red]")
             return ModernCLI.get_attack_params(choice)
@@ -539,15 +647,17 @@ class ModernCLI:
             return ModernCLI.get_attack_params(choice)
 
         # Port input
-        try:
-            default_port = 80 if is_l7 else (CONFIG['DEFAULT_PORT'])
-            port = IntPrompt.ask(
-                "[bold yellow]Port[/bold yellow]",
-                default=default_port
-            )
-        except ValueError:
-            console.print("[bold red]❌ Invalid port number[/bold red]")
-            return ModernCLI.get_attack_params(choice)
+        port = 0
+        if choice != "19": # ICMP doesn't need port
+            try:
+                default_port = 80 if is_l7 else (CONFIG['DEFAULT_PORT'])
+                port = IntPrompt.ask(
+                    "[bold yellow]Port[/bold yellow]",
+                    default=default_port
+                )
+            except ValueError:
+                console.print("[bold red]❌ Invalid port number[/bold red]")
+                return ModernCLI.get_attack_params(choice)
 
         # Threads input
         threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=CONFIG['DEFAULT_THREADS'])
@@ -559,6 +669,9 @@ class ModernCLI:
         max_requests = 0
         proxies = []
         use_tor = False
+        stealth_mode = False # Initialize to fix NameError
+        use_vpn = False
+        use_proxy_chain = False
 
         if is_l7:
             max_requests = IntPrompt.ask("[bold yellow]Total Requests (0 for unlimited)[/bold yellow]", default=0)
@@ -612,6 +725,7 @@ class ModernCLI:
                 use_proxy_chain = Prompt.ask("[bold yellow]Enable proxy chain rotation? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
                 if use_proxy_chain:
                     console.print("[cyan]🔗 Setting up proxy chain...[/cyan]")
+                    from src.utils.network import validate_proxy_chain, create_proxy_chain
                     # Validate and setup proxy chain
                     valid_proxies = validate_proxy_chain(proxies)
                     if len(valid_proxies) >= 2:
@@ -639,8 +753,8 @@ class ModernCLI:
         """Display attack start information with real-time monitoring"""
         global current_monitor
 
-        # Special UI for C2 Shell (ID 19)
-        if choice == "19":
+        # Special UI for C2 Shell (ID 00)
+        if choice == "00":
             if ModernCLI.c2_server and ModernCLI.c2_server.running:
                 console.clear()
                 console.print(Panel(
@@ -688,7 +802,7 @@ class ModernCLI:
                 return
 
         attack_info = Menu.ATTACKS.get(choice)
-        if not attack_info and choice not in ["19"]:
+        if not attack_info:
             return
 
         # Special UI for C2 Server
@@ -725,12 +839,14 @@ class ModernCLI:
             table.add_row("Service", f"{params['service']} Crack")
         elif choice == "25":
             table.add_row("Task", "Subdomain Hunting")
+        elif choice == "19":
+            table.add_row("Payload", "ICMP Hybrid Flood")
         else:
             table.add_row("Port", str(params["port"]))
 
         table.add_row("Threads", str(params["threads"]))
 
-        if choice not in ["17", "21"]:
+        if choice not in ["17", "20", "21", "23", "25", "31", "32"]:
             table.add_row("Duration", f"{params['duration']}s")
             table.add_row("Proxies", str(len(params["proxies"])))
             if params.get("use_tor"):
@@ -746,7 +862,22 @@ class ModernCLI:
         console.print()
 
         # Custom UI tools (Synchronous execution)
-        if str(choice) in ["17", "20", "21", "23", "24", "25"]:
+        if str(choice) in ["17", "20", "21", "23", "24", "25", "31", "32"]:
+            AttackDispatcher.execute(choice, params)
+            return
+                table.add_row("Tor", "Enabled")
+            if params.get("stealth_mode"):
+                table.add_row("Stealth Mode", "Active")
+            if params.get("use_vpn"):
+                table.add_row("VPN", "Enabled")
+            if params.get("use_proxy_chain"):
+                table.add_row("Proxy Chain", "Active")
+
+        console.print(table)
+        console.print()
+
+        # Custom UI tools (Synchronous execution)
+        if str(choice) in ["17", "20", "21", "23", "24", "25", "31", "32"]:
             AttackDispatcher.execute(choice, params)
             return
 
@@ -765,14 +896,20 @@ class ModernCLI:
         current_monitor.start_monitoring()
 
         # Start aesthetic attack animation sequence
-        with console.status("[bold cyan]🛰️  CALIBRATING ATTACK VECTORS...[/bold cyan]", spinner="aesthetic"):
-            time.sleep(0.8)
+        with create_cyber_progress("[bold cyan]🛰️  CALIBRATING ATTACK VECTORS...[/bold cyan]") as progress:
+            task = progress.add_task("Calibrating", total=100)
+            
+            time.sleep(0.4)
             console.print("[dim white]  > Allocating thread pools...[/]")
+            progress.update(task, advance=30)
+            
             time.sleep(0.3)
             console.print("[dim white]  > Establishing bypass tunnels...[/]")
+            progress.update(task, advance=30)
+            
             time.sleep(0.4)
             console.print("[dim white]  > Finalizing synchronization...[/]")
-            time.sleep(0.3)
+            progress.update(task, advance=40)
 
         console.print("[bold bright_green]🚀 ATTACK SEQUENCE INITIALIZED![/bold bright_green]")
         console.print("[bold yellow]💡 Press Ctrl+C to stop the attack[/bold yellow]")

@@ -4,6 +4,7 @@ from src.security import validate_target
 
 class Menu:
     ATTACKS = {
+        "0": {"name": "Target Library (List & Lock Targets)", "func": "target_mgmt", "needs_root": False},
         "1": {"name": "Layer 7 HTTP Flood (Basic)", "func": "http_flood", "needs_root": False},
         "2": {"name": "Layer 7 Async HTTP Flood (Advanced + Proxies)", "func": "async_http_flood", "needs_root": False},
         "3": {"name": "Layer 4 SYN Flood", "func": "syn_flood", "needs_root": True},
@@ -35,7 +36,10 @@ class Menu:
         "29": {"name": "Payload Lab", "func": "payload_lab", "needs_root": False},
         "30": {"name": "Identity Cloak (OpSec)", "func": "identity_cloak", "needs_root": False},
         "31": {"name": "CVE Explorer", "func": "cve_explorer", "needs_root": False},
-        "32": {"name": "Web Exposure Sniper", "func": "web_exposure_sniper", "needs_root": False}
+        "32": {"name": "Web Exposure Sniper", "func": "web_exposure_sniper", "needs_root": False},
+        "33": {"name": "Mixed-Vector L7 Flood", "func": "mixed_flood", "needs_root": False},
+        "34": {"name": "Slow POST Attack", "func": "slowpost_attack", "needs_root": False},
+        "35": {"name": "Async QUIC / UDP Flood", "func": "quic_flood", "needs_root": False}
     }
 
     @staticmethod
