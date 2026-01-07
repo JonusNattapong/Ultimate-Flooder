@@ -44,7 +44,7 @@ def cleanup_temp_files():
         return True, f"Cleaned {len(temp_files)} temp files"
     except Exception as e:
         return False, f"Cleanup failed: {str(e)}"
-
+# IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
 def stealth_mode_init():
     """Initialize stealth mode with anti-trace measures"""
     cleanup_success, cleanup_msg = cleanup_temp_files()

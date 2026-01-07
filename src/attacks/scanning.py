@@ -4,8 +4,9 @@ import json
 import time
 import random
 import threading
+import ipaddress
 from datetime import datetime
-from scapy.all import ARP, Ether, srp, IP, TCP, sr1, conf
+from scapy.all import ARP, Ether, srp, IP, TCP, sr1, ICMP, sr, conf
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -128,39 +129,64 @@ def port_scanner(target, ports, threads=10, stealth=True):
         console.print(Panel("[bold green]Scan Completed Successfully.[/]", border_style="green"))
 
 def network_scanner(threads=250, subnet=None):
-    """Modern Network Discovery with ARP & History Tracking"""
+    """Modern Network Discovery with ARP for local subnets & Ping Sweep for remote subnets"""
     add_system_log("[bold cyan]SCAN:[/] Initiating network-wide discovery...")
-    
+
+    # Determine local subnet
+    local_subnet = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        local_subnet = ".".join(local_ip.split('.')[:-1]) + ".0/24"
+    except:
+        local_subnet = "192.168.1.0/24"
+
     if not subnet:
-        # Try to auto-detect local network
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-            subnet = ".".join(local_ip.split('.')[:-1]) + ".0/24"
-        except:
-            subnet = "192.168.1.0/24"
+        subnet = local_subnet
 
     console.print(Panel(f"[bold cyan]📡 Network Discovery Path:[/] [yellow]{subnet}[/]", border_style="cyan"))
-    
-    # --- PHASE 1: ARP DISCOVERY WITH SPINNER ---
+
+    # --- PHASE 1: DISCOVERY (ARP or PING) ---
     results = []
     from rich.progress import Progress, TextColumn
-    with Progress(
-        CyberSpinnerColumn(),
-        TextColumn("[bold green]🛰️  Broadcasting ARP Requests...[/]"),
-        console=console,
-        transient=True
-    ) as progress:
-        progress.add_task("", total=None)
-        try:
-            ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=subnet), timeout=5, retry=2, verbose=False)
-            for snd, rcv in ans:
-                results.append({'ip': rcv.psrc, 'mac': rcv.hwsrc})
-        except Exception as e:
-            console.print(f"[red]Error during ARP scan: {e}[/]")
-            return
+
+    if subnet == local_subnet:
+        # Local subnet: Use ARP
+        with Progress(
+            CyberSpinnerColumn(),
+            TextColumn("[bold green]🛰️  Broadcasting ARP Requests...[/]"),
+            console=console,
+            transient=True
+        ) as progress:
+            progress.add_task("", total=None)
+            try:
+                ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=subnet), timeout=5, retry=2, verbose=False)
+                for snd, rcv in ans:
+                    results.append({'ip': rcv.psrc, 'mac': rcv.hwsrc})
+            except Exception as e:
+                console.print(f"[red]Error during ARP scan: {e}[/]")
+                return
+    else:
+        # Remote subnet: Use Ping Sweep
+        with Progress(
+            CyberSpinnerColumn(),
+            TextColumn("[bold green]📡 Broadcasting ICMP Ping Requests...[/]"),
+            console=console,
+            transient=True
+        ) as progress:
+            progress.add_task("", total=None)
+            try:
+                network = ipaddress.ip_network(subnet)
+                ips = [str(ip) for ip in network.hosts()]
+                pkts = [IP(dst=ip)/ICMP() for ip in ips]
+                ans, unans = sr(pkts, timeout=2, retry=1, verbose=False)
+                for snd, rcv in ans:
+                    results.append({'ip': rcv.src, 'mac': 'N/A'})
+            except Exception as e:
+                console.print(f"[red]Error during ping sweep: {e}[/]")
+                return
 
     if not results:
         console.print(Panel("[bold red]❌ No devices found on the network.[/bold red]", border_style="red"))
