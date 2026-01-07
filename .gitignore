@@ -215,3 +215,22 @@ __pycache__/
 *.so
 *.dll
 *.dylib
+
+# Generated reports and audit files
+reports/
+*.html
+
+# Sandbox and testing files
+sandbox/
+
+# Build directories
+main.build/
+main.dist/
+build/
+dist/
+
+# Temporary and log files
+*.log
+logs/
+temp/
+tmp/
