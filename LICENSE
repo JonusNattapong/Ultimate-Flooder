@@ -27,14 +27,21 @@ copyright and will result in immediate termination of any granted access. The
 copyright holder reserves the right to seek all remedies available under civil 
 and criminal law to the maximum extent permissible.
 
+DISCLAIMER OF LIABILITY
+The developer assumes no responsibility or liability for any damages, legal 
+consequences, or actions taken by third parties arising from the use of this 
+Software. The user assumes all risks associated with its operation. Any 
+unauthorized exploitation or redistribution will be prosecuted to the 
+fullest extent of the law.
+
 --------------------------------------------------------------------------------
 ประกาศสงวนลิขสิทธิ์ (ฉบับภาษาไทย)
 --------------------------------------------------------------------------------
 
-ลิขสิทธิ์ © 2569 ณัฐพงศ์ ตะพาบชูม — สงวนลิขสิทธิ์ตามกฎหมาย
+ลิขสิทธิ์ © 2569 ณัฐพงศ์ ตะปะชุม — สงวนลิขสิทธิ์ตามกฎหมาย
 
 ซอฟต์แวร์และรหัสต้นฉบับ (Source Code) นี้เป็นกรรมสิทธิ์แต่เพียงผู้เดียวของ 
-ณัฐพงศ์ ตะพาบชูม ซึ่งได้รับความคุ้มครองภายใต้พระราชบัญญัติลิขสิทธิ์และกฎหมาย
+ณัฐพงศ์ ตะปะชุม ซึ่งได้รับความคุ้มครองภายใต้พระราชบัญญัติลิขสิทธิ์และกฎหมาย
 คุ้มครองทรัพย์สินทางปัญญา
 
 ข้อกำหนดและเงื่อนไข:
@@ -44,3 +51,9 @@ and criminal law to the maximum extent permissible.
    โดยไม่ได้รับความยินยอมเป็นลายลักษณ์อักษรจากเจ้าของลิขสิทธิ์
 3. ห้ามมิให้เผยแพร่โดยไม่ได้รับสิทธิ์: การกระทำใดๆ ที่เป็นการละเมิดลิขสิทธิ์
    จะถูกดำเนินคดีทางกฎหมายขั้นสูงสุด ทั้งทางแพ่งและทางอาญา โดยไม่มีข้อยกเว้น
+
+**ข้อจำกัดความรับผิดชอบ (Disclaimer):**
+ผู้พัฒนาจะไม่รับผิดชอบต่อความเสียหาย ผลกระทบ หรือการกระทำทางกฎหมายใดๆ ที่เกิดขึ้นจากการนำ
+ซอฟต์แวร์นี้ไปใช้งานในทุกกรณี ผู้ใช้บริการต้องยอมรับความเสี่ยงด้วยตนเองทั้งสิ้น หากมีการตรวจพบว่ามี
+การนำไปใช้งานในทางที่ผิด หรือมีการแจกจ่ายโดยไม่ได้รับอนุญาต เจ้าของลิขสิทธิ์จะดำเนินคดีตาม
+กฎหมายให้ถึงที่สุด

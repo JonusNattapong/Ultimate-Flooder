@@ -1,9 +1,9 @@
 # IP-HUNTER v2.5.0 | Advanced DDoS Toolkit & Security Suite
 
-**© 2026 Nattapong Tapachoom. สิทธิในทรัพย์สินทางปัญญาและลิขสิทธิ์ทั้งหมดเป็นของ ณัฐพงศ์ ตะพาบชูม**
+**© 2026 Nattapong Tapachoom. สิทธิในทรัพย์สินทางปัญญาและลิขสิทธิ์ทั้งหมดเป็นของ ณัฐพงศ์ ตะพะชุม**
 **[PROPRIETARY SOFTWARE - RESTRICTED DISTRIBUTION]**
 
-ซอฟต์แวร์นี้เป็นทรัพย์สินทางปัญญาของ ณัฐพงศ์ ตะพาบชูม ห้ามมิให้มีการเผยแพร่ ดัดแปลง หรือแจกจ่ายต่อไม่ว่าในกรณีใดๆ โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร
+ซอฟต์แวร์นี้เป็นทรัพย์สินทางปัญญาของ ณัฐพงศ์ ตะพะชุม ห้ามมิให้มีการเผยแพร่ ดัดแปลง หรือแจกจ่ายต่อไม่ว่าในกรณีใดๆ โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร **ผู้พัฒนาจะไม่รับผิดชอบต่อความเสียหายหรือผลกระทบใดๆ ที่เกิดขึ้นจากการนำซอฟต์แวร์นี้ไปใช้งานในทุกกรณี และหากมีการละเมิดลิขสิทธิ์ ดัดแปลง หรือแจกจ่ายโดยไม่ได้รับอนุญาต จะดำเนินคดีตามกฎหมายให้ถึงที่สุด**
 
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 
@@ -272,9 +272,9 @@ VPN → Tor → Target
 
 **Copyright © 2026 Nattapong Tapachoom. All Rights Reserved.**
 
-ซอฟต์แวร์นี้เป็นลิขสิทธิ์ของ **ณัฐพงศ์ ตะพาบชูม** ห้ามมิให้ผู้ใดทำการคัดลอก ทำซ้ำ ดัดแปลง แก้ไข เผยแพร่ หรือแจกจ่ายส่วนหนึ่งส่วนใดหรือทั้งหมดของซอฟต์แวร์นี้โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษรโดยเด็ดขาด การละเมิดสิทธิ์ดังกล่าวถือเป็นการกระทำที่ผิดกฎหมายและจะถูกดำเนินคดีขั้นสูงสุด
+ซอฟต์แวร์นี้เป็นลิขสิทธิ์ของ **ณัฐพงศ์ ตะพาบชูม** ห้ามมิให้ผู้ใดทำการคัดลอก ทำซ้ำ ดัดแปลง แก้ไข เผยแพร่ หรือแจกจ่ายส่วนหนึ่งส่วนใดหรือทั้งหมดของซอฟต์แวร์นี้โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษรโดยเด็ดขาด
 
-**Legal Terms:**
-1. **No Modifications:** You may not modify, adapt, or create derivative works from this Software.
-2. **No Redistribution:** You are strictly prohibited from sharing, selling, or redistributing the source code or binary.
-3. **Proprietary Rights:** All title and intellectual property rights in and to the Software are owned by Nattapong Tapachoom.
+**ข้อกำหนดทางกฎหมายสำคัญ (Important Legal Notice):**
+1. **No Liability:** ผู้พัฒนาจะไม่รับผิดชอบต่อความเสียหายหรือผลกระทบใดๆ ที่เกิดขึ้นจากการนำซอฟต์แวร์นี้ไปใช้งานในทุกกรณี ผู้ใช้ต้องรับผิดชอบต่อการกระทำของตนเองแต่เพียงผู้เดียว
+2. **Strict Prosecution:** หากมีการตรวจพบว่ามีการนำไป ดัดแปลง แจกจ่าย หรือใช้งานโดยมิได้รับอนุญาต เจ้าของลิขสิทธิ์จะ**ดำเนินคดีตามกฎหมายทั้งทางแพ่งและทางอาญาให้ถึงที่สุด**
+3. **Intellectual Property:** สิทธิในซอฟต์แวร์และรหัสต้นฉบับทั้งหมดเป็นของ Nattapong Tapachoom แต่เพียงผู้เดียว
