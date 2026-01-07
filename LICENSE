@@ -1,9 +1,46 @@
-Copyright (c) 2026 Nattapong Tapachoom
+PROPRIETARY AND CONFIDENTIAL
+Copyright (c) 2026 Nattapong Tapachoom. All rights reserved.
 
-Full Rights Reserved (สงวนลิขสิทธิ์ทั้งหมด)
+--------------------------------------------------------------------------------
+TERMS OF USE AND DISTRIBUTION
+--------------------------------------------------------------------------------
 
-NOT FOR REDISTRIBUTION OR MODIFICATION.
-ไม่อนุญาตให้นำไปแก้ไขหรือแจกจ่ายเด็ดขาด
+This software and all associated source code, documentation, and derived assets 
+(collectively referred to as the "Software") are the exclusive intellectual property 
+of Nattapong Tapachoom. The Software is protected by national copyright laws, 
+international treaties, and other intellectual property regulations.
 
-This software and its source code are the property of Nattapong Tapachoom. 
-Any unauthorized copying, modification, or distribution is strictly prohibited.
+RESTRICTIONS
+Unless expressly authorized in writing by Nattapong Tapachoom, you are strictly 
+prohibited from:
+
+1. REDISTRIBUTION: Copying, publishing, or distributing the Software or any portion 
+   thereof to any third party, whether for commercial or non-commercial purposes.
+2. MODIFICATION: Altering, adapting, merging, translating, or creating derivative 
+   works based upon the Software.
+3. REVERSE ENGINEERING: Decompiling, disassembling, or attempting to derive the 
+   original source code of the Software.
+
+ENFORCEMENT
+Any unauthorized use, duplication, or distribution constitutes an infringement of 
+copyright and will result in immediate termination of any granted access. The 
+copyright holder reserves the right to seek all remedies available under civil 
+and criminal law to the maximum extent permissible.
+
+--------------------------------------------------------------------------------
+ประกาศสงวนลิขสิทธิ์ (ฉบับภาษาไทย)
+--------------------------------------------------------------------------------
+
+ลิขสิทธิ์ © 2569 ณัฐพงศ์ ตะพาบชูม — สงวนลิขสิทธิ์ตามกฎหมาย
+
+ซอฟต์แวร์และรหัสต้นฉบับ (Source Code) นี้เป็นกรรมสิทธิ์แต่เพียงผู้เดียวของ 
+ณัฐพงศ์ ตะพาบชูม ซึ่งได้รับความคุ้มครองภายใต้พระราชบัญญัติลิขสิทธิ์และกฎหมาย
+คุ้มครองทรัพย์สินทางปัญญา
+
+ข้อกำหนดและเงื่อนไข:
+1. ห้ามมิให้ทำซ้ำ คัดลอก หรือแจกจ่าย: ไม่ว่าจะเป็นส่วนหนึ่งส่วนใดหรือทั้งหมด 
+   เพื่อการค้าหรือเพื่อวัตถุประสงค์อื่นใดโดยไม่ได้รับอนุญาต
+2. ห้ามมิให้แก้ไขหรือดัดแปลง: รวมถึงการสร้างงานต่อเนื่องจากรหัสต้นฉบับนี้ 
+   โดยไม่ได้รับความยินยอมเป็นลายลักษณ์อักษรจากเจ้าของลิขสิทธิ์
+3. ห้ามมิให้เผยแพร่โดยไม่ได้รับสิทธิ์: การกระทำใดๆ ที่เป็นการละเมิดลิขสิทธิ์
+   จะถูกดำเนินคดีทางกฎหมายขั้นสูงสุด ทั้งทางแพ่งและทางอาญา โดยไม่มีข้อยกเว้น

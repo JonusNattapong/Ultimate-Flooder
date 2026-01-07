@@ -1,7 +1,9 @@
 # IP-HUNTER v2.5.0 | Advanced DDoS Toolkit & Security Suite
 
-**© 2026 Nattapong Tapachoom. สงวนลิขสิทธิ์ทั้งหมด.**
-**[NOT FOR REDISTRIBUTION OR MODIFICATION]**
+**© 2026 Nattapong Tapachoom. สิทธิในทรัพย์สินทางปัญญาและลิขสิทธิ์ทั้งหมดเป็นของ ณัฐพงศ์ ตะพาบชูม**
+**[PROPRIETARY SOFTWARE - RESTRICTED DISTRIBUTION]**
+
+ซอฟต์แวร์นี้เป็นทรัพย์สินทางปัญญาของ ณัฐพงศ์ ตะพาบชูม ห้ามมิให้มีการเผยแพร่ ดัดแปลง หรือแจกจ่ายต่อไม่ว่าในกรณีใดๆ โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร
 
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 
@@ -266,10 +268,13 @@ VPN → Tor → Target
 5. **Document Everything**: Keep records of authorization
 
 **Remember: The best anonymity comes from not needing it in the first place. Always act ethically and legally.**
-## 📜 License & Copyright
+## 📜 License & Copyright (ข้อกำหนดลิขสิทธิ์)
 
-**Copyright (c) 2026 Nattapong Tapachoom**
+**Copyright © 2026 Nattapong Tapachoom. All Rights Reserved.**
 
-สงวนลิขสิทธิ์ทั้งหมด ไม่อนุญาตให้นำไปแก้ไข ดัดแปลง หรือแจกจ่ายต่อโดยเด็ดขาด การกระทำใดๆ ที่ไม่ได้รับอนุญาตถือเป็นการละเมิดลิขสิทธิ์และจะถูกดำเนินคดีตามกฎหมาย
+ซอฟต์แวร์นี้เป็นลิขสิทธิ์ของ **ณัฐพงศ์ ตะพาบชูม** ห้ามมิให้ผู้ใดทำการคัดลอก ทำซ้ำ ดัดแปลง แก้ไข เผยแพร่ หรือแจกจ่ายส่วนหนึ่งส่วนใดหรือทั้งหมดของซอฟต์แวร์นี้โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษรโดยเด็ดขาด การละเมิดสิทธิ์ดังกล่าวถือเป็นการกระทำที่ผิดกฎหมายและจะถูกดำเนินคดีขั้นสูงสุด
 
-Full Rights Reserved. Modification or distribution of this software is strictly prohibited under any circumstances.
+**Legal Terms:**
+1. **No Modifications:** You may not modify, adapt, or create derivative works from this Software.
+2. **No Redistribution:** You are strictly prohibited from sharing, selling, or redistributing the source code or binary.
+3. **Proprietary Rights:** All title and intellectual property rights in and to the Software are owned by Nattapong Tapachoom.
