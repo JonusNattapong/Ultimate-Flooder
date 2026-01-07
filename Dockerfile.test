@@ -1,0 +1,11 @@
+FROM python:3.9-slim
+
+# คัดลอกไฟล์ทดสอบ
+COPY test_server.py /app/test_server.py
+WORKDIR /app
+
+# เปิดพอร์ต
+EXPOSE 80 8080
+
+# รันเซิร์ฟเวอร์ทดสอบ
+CMD ["python", "test_server.py"]
