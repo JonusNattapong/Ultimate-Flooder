@@ -63,13 +63,37 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 32. **Web Exposure Sniper**: Deep scan for leaked configs and exposed directories.
 
 ### Cyber-Sec Toolkit
-23. **Vulnerability Scout**: Quick scans for misconfigured headers and common paths.
-24. **Brute Force Suite**: Credential audit tool for FTP, SSH, and HTTP.
-26. **Proxy Auto-Pilot**: Automated scraper and validator for public proxies.
-27. **WiFi Ghost Recon**: Nearby wireless signal monitoring (Windows netsh).
-28. **Live Packet Insight**: Real-time traffic sniffer and protocol analyzer.
-29. **Payload Laboratory**: Reverse shell generator for multiple languages.
-30. **Identity Cloak**: OpSec auditor and privacy checker.
+23. **Vulnerability Scout**: Quick scans for misconfigured headers (XSS, CORS, CSP) and common sensitive paths.
+24. **Brute Force Suite**: Multi-protocol credential auditor for FTP, SSH, and HTTP Basic Auth.
+26. **Proxy Auto-Pilot**: Automated scraper that gathers, validates, and benchmarks public proxies for latency.
+27. **WiFi Ghost Recon**: Nearby wireless signal monitoring and BSSID tracking (Windows netsh optimized).
+28. **Live Packet Insight**: Real-time traffic sniffer using Scapy to analyze protocol distribution (TCP/UDP/ICMP).
+29. **Payload Laboratory**: Interactive reverse shell generator for Python, Bash, Netcat, and PowerShell.
+30. **Identity Cloak**: Operational Security auditor that checks for IP leaks, VPN status, and MAC address exposure.
+
+## 🛰️ Technical Deep-Dive
+
+### Smart Target Library (ID 0)
+The Target Library provides **persistence** for your operations. Any host discovered via the [Network Scanner](src/attacks/scanning.py) or entered manually can be "Locked" into the library. 
+- Auto-saves to `txt/locked_targets.txt`
+- Quick-select IDs to avoid re-typing long URLs or IPs.
+- Seamlessly integrates with all 35 attack vectors.
+
+### Adaptive IA Flooding (ID 22)
+Unlike standard flooders, the **Adaptive Flood** monitors the target's response latency. 
+- If the server responds quickly, it **ramps up** thread intensity.
+- If it detects a `429 Too Many Requests` or `503 Service Unavailable`, it **backs off** to preserve proxy health.
+- Automatically rotates User-Agents when a WAF block (403) is detected.
+
+### Hybrid ICMP & QUIC (IDs 19, 35)
+- **ID 19**: Combines a high-velocity ICMP Echo Flood with the **Ping of Death** (oversized packet fragments) to overwhelm network stacks and firewalls simultaneously.
+- **ID 35**: Specifically targets the **QUIC (HTTP/3)** protocol over UDP 443, bypassing many traditional TCP-based WAF rules.
+
+### Botnet C2 Infrastructure (IDs 7, 18, 00)
+IP-HUNTER features a built-in **Command & Control** system:
+1. **Server (ID 7)**: Listen for incoming bot connections on a custom port.
+2. **Client (ID 18)**: Deploy a lightweight bot that connects back to your C2 center.
+3. **Interactive Shell (ID 00)**: A real-time terminal to broadcast flood commands to your entire botnet with a single "attack" command.
 
 ## 🛠️ Requirements
 
