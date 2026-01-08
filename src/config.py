@@ -6,14 +6,14 @@ dotenv.load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__fi
 
 # การตั้งค่าแอปพลิเคชัน  # คอมเมนต์ภาษาไทยสำหรับส่วนการตั้งค่า
 CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต่างๆของโปรแกรม
-    'DEFAULT_THREADS': 500,  # จำนวนเธรดเริ่มต้นสำหรับการโจมตี
+    'DEFAULT_THREADS': 100,  # ลดจำนวนเธรดเริ่มต้นเพื่อความปลอดภัยของระบบ
     'DEFAULT_DURATION': 60,  # ระยะเวลาการโจมตีเริ่มต้นเป็นวินาที
     'DEFAULT_PORT': 80,  # พอร์ตเริ่มต้นสำหรับการโจมตี
     'C2_DEFAULT_PORT': 6667,  # พอร์ตเริ่มต้นสำหรับเซิร์ฟเวอร์ C2
     'NTP_SERVERS_FILE': 'ntp_servers.txt',  # ชื่อไฟล์ที่เก็บเซิร์ฟเวอร์ NTP
     'PROXY_FILE': 'proxy.txt',  # ชื่อไฟล์ที่เก็บรายการพร็อกซี
     'TOR_PROXY': 'socks5://127.0.0.1:9050',  # Tor SOCKS proxy สำหรับปกป้องตัวตน
-    'TOR_AUTO_START': True,  # Auto-start Tor ถ้าเลือกใช้ Tor แต่ยังไม่รัน
+    'TOR_AUTO_START': False,  # ปิด auto-start Tor เพื่อความปลอดภัย
     'TOR_PORT': 9050,  # พอร์ตที่ Tor ใช้
     'TOR_BRIDGES': [],  # Tor bridges สำหรับ bypass censorship
     'VPN_ENABLED': False,  # เปิดใช้งาน VPN integration
@@ -45,9 +45,8 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'REFERERS': ["https://google.com", "https://bing.com", "https://yahoo.com", "https://duckduckgo.com"]
 }
 
-# Export environment variables for easy access
-DISCORD_WEBHOOK_URL = CONFIG['DISCORD_WEBHOOK_URL']
-MASTER_ADMIN_KEY = CONFIG['MASTER_ADMIN_KEY']
+# Security: Do not export sensitive keys directly
+# Access them through CONFIG dictionary only
 OPENROUTER_API_KEY = CONFIG['OPENROUTER_API_KEY']
 LICENSE_PREFIX = CONFIG['LICENSE_PREFIX']
 LICENSE_SUFFIX = CONFIG['LICENSE_SUFFIX']

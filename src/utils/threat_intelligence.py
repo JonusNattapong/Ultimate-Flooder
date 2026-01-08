@@ -11,10 +11,11 @@ console = Console()
 class ThreatIntelligence:
     """Advanced Threat Intelligence Platform for Ultimate Flooder"""
 
-    def __init__(self):
+    def __init__(self, max_entries=50):
         self.threat_db = {}
         self.risk_scores = {}
         self.correlations = []
+        self.max_entries = max_entries  # Limit memory usage
 
     def collect_intelligence(self, target, scan_results=None, vuln_results=None, osint_data=None):
         """Collect and correlate intelligence from multiple sources"""
@@ -52,6 +53,13 @@ class ThreatIntelligence:
 
         # 6. Store Intelligence
         self.threat_db[intel_id] = intel_data
+
+        # 7. Memory Management: Clean old entries
+        if len(self.threat_db) > self.max_entries:
+            # Remove oldest entries
+            sorted_ids = sorted(self.threat_db.keys(), key=lambda x: self.threat_db[x]['timestamp'])
+            for old_id in sorted_ids[:len(self.threat_db) - self.max_entries]:
+                del self.threat_db[old_id]
 
         console.print(f"[bold cyan]THREAT-INTEL:[/] Collected intelligence for {target} (Risk: {intel_data['risk_score']})")
         return intel_id, intel_data
