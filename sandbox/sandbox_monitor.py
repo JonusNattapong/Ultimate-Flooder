@@ -75,7 +75,9 @@ def display_monitor():
             time.sleep(0.25)
 
 if __name__ == "__main__":
-    PORT = 8082
+    PORT = 8082  # Fixed port as requested
+    console.print(f"[bold green][+] Starting sandbox server on port {PORT}[/]")
+    
     def start_loop():
         asyncio.run(run_async_server(PORT))
     
