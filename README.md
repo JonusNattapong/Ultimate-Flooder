@@ -113,11 +113,19 @@ IP-HUNTER features a built-in **Command & Control** system:
 2. **Client (ID 18)**: Deploy a lightweight bot that connects back to your C2 center.
 3. **Interactive Shell (ID 00)**: A real-time terminal to broadcast flood commands to your entire botnet with a single "attack" command.
 
+## 🧪 Testing State (Current)
+- **Status**: Functional verification of all 35 attack vectors in progress.
+- **Target**: `http://#################/`
+- **UI Architecture**: Enhanced Cyberpunk HUD with real-time monitoring and persistent reporting.
+
 ## 🛠️ Requirements
 
 - **Python 3.8+**
 - **Root/Administrator Privileges** (Required for Layer 4 & Amplification attacks)
 - **Tor** (Optional, for identity protection in HTTP attacks)
+- **Configuration**: Create a `.env` file based on `.env example`
+  - `MASTER_ADMIN_KEY`: Random 32-character hex key required for C2 access.
+  - `OPEN_ROUTER`: API key for AI-Adaptive logic.
 - **Dependencies**:
   ```bash
   pip install -r requirements.txt
@@ -130,6 +138,10 @@ IP-HUNTER features a built-in **Command & Control** system:
 # Clone the repository
 git clone https://github.com/JonusNattapong/IP-HUNTER.git
 cd IP-HUNTER
+
+# Setup environment
+cp ".env example" .env
+# Edit .env with your keys
 
 # Install required packages
 pip install -r requirements.txt

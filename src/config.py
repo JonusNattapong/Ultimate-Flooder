@@ -33,7 +33,7 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
     'OPENROUTER_API_KEY': os.getenv('OPEN_ROUTER'), # API Key สำหรับ OpenRouter AI Recon
     'DISCORD_WEBHOOK_URL': os.getenv('DISCORD_WEBHOOK_URL'), # Webhook สำหรับแจ้งเตือนการใช้งาน (Telemetry)
-    'MASTER_ADMIN_KEY': os.getenv('MASTER_ADMIN_KEY'), # คีย์หลักสำหรับ Admin (ข้าม DRM)
+    'MASTER_ADMIN_KEY': 'NT-ADM-0x7F9E23B1A4C6D8E5F09B18C27A3D4E5', # คีย์หลักสำหรับ Admin (ข้าม DRM)
     'LICENSE_PREFIX': os.getenv('LICENSE_PREFIX'), # คำขึ้นต้นกุญแจ
     'LICENSE_SUFFIX': os.getenv('LICENSE_SUFFIX'), # คำลงท้ายกุญแจ
     'USER_AGENTS': [
