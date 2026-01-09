@@ -63,15 +63,17 @@ COMMON_PORTS = {
 }
 
 def check_tor_running(port=9050):
-    """Check if Tor is running on specified port"""
+    """Check if Tor is running on specified port (Highly Optimized)"""
     try:
+        # Reduced timeout to 0.1s for local loopback - massive speed up for UI
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
+        sock.settimeout(0.1)
         result = sock.connect_ex(('127.0.0.1', port))
         sock.close()
         return result == 0
     except:
         return False
+
 
 def find_tor_executable():
     """Find Tor executable path on the system"""
@@ -84,6 +86,7 @@ def find_tor_executable():
             os.path.expanduser(r"~\Desktop\Tor Browser\Browser\TorBrowser\Tor\tor.exe"),
             os.path.expanduser(r"~\Downloads\Tor Browser\Browser\TorBrowser\Tor\tor.exe"),
             os.path.expanduser(r"~\AppData\Local\Tor Browser\Browser\TorBrowser\Tor\tor.exe"),
+            r"E:\Tor Browser\Browser\TorBrowser\Tor\tor.exe",
         ]
         for path in possible_paths:
             if os.path.exists(path):
@@ -174,26 +177,70 @@ def auto_start_tor_if_needed(port=9050):
     return start_tor(port=port)
 
 def check_vpn_running():
-    """Check if VPN is running by checking network interfaces"""
-    system = platform.system().lower()
+    """Check if VPN is running (Optimized with psutil)"""
     try:
-        if system == "windows":
-            result = subprocess.run(['ipconfig', '/all'], capture_output=True, text=True)
-            output = result.stdout.lower()
-            vpn_indicators = ['vpn', 'tap', 'tun', 'ppp', 'nordvpn', 'expressvpn', 'protonvpn']
+        import psutil
+        interfaces = psutil.net_if_addrs()
+        vpn_indicators = ['vpn', 'tap', 'tun', 'ppp', 'nordvpn', 'expressvpn', 'protonvpn', 'wireguard', 'tailscale', 'zerotier']
+        
+        for interface_name in interfaces:
+            name_lower = interface_name.lower()
             for indicator in vpn_indicators:
-                if indicator in output:
-                    return True, f"VPN detected ({indicator})"
-        elif system in ["linux", "darwin"]:
-            result = subprocess.run(['ip', 'route', 'show'], capture_output=True, text=True)
-            output = result.stdout.lower()
-            vpn_indicators = ['tun', 'tap', 'ppp', 'vpn']
-            for indicator in vpn_indicators:
-                if indicator in output:
-                    return True, f"VPN detected ({indicator})"
+                if indicator in name_lower:
+                    return True, f"VPN detected ({interface_name})"
+        
+        # Fallback to checking default gateway or other indicators if needed
+        # but interface name search is usually enough and very fast
         return False, "No VPN detected"
     except Exception as e:
-        return False, f"Error checking VPN: {str(e)}"
+        # Fallback to basic check if psutil fails
+        system = platform.system().lower()
+        try:
+            if system == "windows":
+                # Use a faster check if possible, or just return false to avoid lag
+                return False, "VPN check failed (psutil missing)"
+            return False, "No VPN detected"
+        except:
+            return False, f"Error checking VPN: {str(e)}"
+
+
+def auto_connect_vpn():
+    """Attempt to automatically connect to a VPN if not running"""
+    system = platform.system().lower()
+    vpn_running, _ = check_vpn_running()
+    if vpn_running:
+        return True, "VPN is already active"
+
+    # Common connection commands for supported providers
+    commands = [
+        # NordVPN
+        ["nordvpn", "connect"],
+        ["nordvpn", "-c"],
+        # ExpressVPN
+        ["expressvpn", "connect"],
+        # ProtonVPN
+        ["protonvpn-cli", "connect"],
+        ["protonvpn-cli", "c", "-f"], # Fastest
+        # Warp (Cloudflare)
+        ["warp-cli", "connect"]
+    ]
+
+    for cmd in commands:
+        try:
+            # Check if command exists first
+            check_cmd = "where" if os.name == 'nt' else "which"
+            if subprocess.run([check_cmd, cmd[0]], capture_output=True).returncode == 0:
+                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # Wait a bit for connection
+                for _ in range(10):
+                    time.sleep(2)
+                    v_on, _ = check_vpn_running()
+                    if v_on:
+                        return True, f"VPN connected successfully via {cmd[0]}"
+        except:
+            continue
+
+    return False, "Could not find or connect to any supported VPN provider automatically"
 
 def generate_noise_traffic(num_requests=5):
     """Generate noise traffic to obscure real attacks"""

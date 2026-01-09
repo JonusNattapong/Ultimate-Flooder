@@ -12,10 +12,11 @@ from src.utils.ui import create_cyber_progress
 
 console = Console()
 
-def proxy_autopilot():
+def proxy_autopilot(silent=False):
     """Proxy Scraper & Validator - Finds and tests public proxies"""
     from src.utils.ui import create_cyber_progress
-    add_system_log("[bold cyan]AUTOPILOT:[/] Scraping public proxies...")
+    if not silent:
+        add_system_log("[bold cyan]AUTOPILOT:[/] Scraping public proxies...")
     api_urls = [
         "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
         "https://www.proxy-list.download/api/v1/get?type=http",
@@ -31,7 +32,8 @@ def proxy_autopilot():
         except: continue
         
     unique_proxies = list(set([p.strip() for p in raw_proxies if ":" in p]))
-    console.print(f"[green]Found {len(unique_proxies)} unique proxies. Testing latency...[/]")
+    if not silent:
+        console.print(f"[green]Found {len(unique_proxies)} unique proxies. Testing latency...[/]")
     
     valid_proxies = []
     def check_p(p):
@@ -42,14 +44,22 @@ def proxy_autopilot():
         except: return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        with create_cyber_progress("Validating Proxies...", total=100) as progress:
-            task = progress.add_task("Validating")
-            futures = [executor.submit(check_p, p) for p in unique_proxies[:100]]
-            results = []
-            for f in concurrent.futures.as_completed(futures):
-                results.append(f.result())
-                progress.update(task, advance=1)
-        valid_proxies = [r for r in results if r]
+        if not silent:
+            with create_cyber_progress("Validating Proxies...", total=100) as progress:
+                task = progress.add_task("Validating")
+                futures = [executor.submit(check_p, p) for p in unique_proxies[:100]]
+                results = []
+                for f in concurrent.futures.as_completed(futures):
+                    results.append(f.result())
+                    progress.update(task, advance=1)
+            valid_proxies = [r for r in results if r]
+        else:
+            futures = [executor.submit(check_p, p) for p in unique_proxies[:50]] # Scan less for speed in silent mode
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+            valid_proxies = [r for r in results if r]
+
+    if silent:
+        return [p for p, lat in valid_proxies]
 
     table = Table(title="Live Proxy Report", border_style="green")
     table.add_column("Proxy Address", style="cyan")

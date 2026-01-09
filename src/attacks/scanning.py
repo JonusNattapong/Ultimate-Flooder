@@ -12,6 +12,8 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.live import Live
 from rich.console import Group
+from rich.layout import Layout
+from rich.box import HEAVY_EDGE, ROUNDED
 from src.utils.logging import add_system_log
 from src.utils.ui import create_cyber_progress, CyberSpinnerColumn
 from src.utils.network import COMMON_PORTS
@@ -21,20 +23,23 @@ console = Console()
 table_lock = threading.Lock() # Lock for thread-safe UI updates
 
 def grab_banner(target, port):
-    """Attempt to grab a service banner from an open port"""
+    """Attempt to grab a service banner from an open port (Fast Async-like)"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1.5)
+        # Reduced timeout for faster scanning
+        s.settimeout(0.8)
         s.connect((target, port))
-        # Some services need a push to talk
-        if port == 80: s.send(b"HEAD / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-        elif port == 21: pass # FTP usually sends welcome
         
-        banner = s.recv(1024).decode('utf-8', errors='ignore').strip()
+        # Identify service and send appropriate probe
+        if port == 80: s.send(b"HEAD / HTTP/1.1\r\nHost: local\r\n\r\n")
+        elif port == 443: pass # SSL Handshake handled elsewhere
+        
+        banner = s.recv(512).decode('utf-8', errors='ignore').strip()
         s.close()
-        return banner[:50]
+        return banner[:40] if banner else "NO_BANNER_DATA"
     except:
-        return "No Banner"
+        return "NO_BANNER_DATA"
+
 
 def port_scanner(target, ports, threads=10, stealth=True):
     """Professional Multi-Threaded Stealth (SYN) Port Scanner"""
@@ -95,13 +100,19 @@ def port_scanner(target, ports, threads=10, stealth=True):
     console.print(f"\n[bold yellow]🔍 Initiating {mode} Scan against {target}[/bold yellow]")
     
     # Live Results Table
-    results_table = Table(title=f"Advanced Port Audit: {target}", border_style="cyan", expand=True)
-    results_table.add_column("Port", style="yellow", width=10)
-    results_table.add_column("Service & Common Usage", style="cyan", width=35)
-    results_table.add_column("Status", style="green", width=15)
-    results_table.add_column("Banner / Detail", style="white")
+    results_table = Table(
+        title=f"[bold green]≺[/] [bold white]PORT_VULN_SESSION:[/] [cyan]{target}[/] [bold green]≻[/]",
+        border_style="green",
+        expand=True,
+        box=ROUNDED,
+        header_style="bold green"
+    )
+    results_table.add_column("ID_PRT", style="bold yellow", justify="center", no_wrap=True)
+    results_table.add_column("PROTOCOL_SERVICE", style="cyan", no_wrap=True)
+    results_table.add_column("THREAT_LVL", justify="center", no_wrap=True)
+    results_table.add_column("INTEL_DATA_GRAB", style="dim white")
 
-    progress = create_cyber_progress(f"[cyan]Hunting Ports on {target}...[/]", total=len(ports))
+    progress = create_cyber_progress(f"[bold green]⫸[/] [white]PORT_AUDIT_SEQ:[/] [cyan]{target}[/]", total=len(ports))
     task = progress.add_task("Scanning", total=len(ports))
     
     def worker(p):
@@ -110,28 +121,39 @@ def port_scanner(target, ports, threads=10, stealth=True):
             banner = open_ports[p]
             service_desc = COMMON_PORTS.get(p, "Unknown Service")
             
-            # --- PROFESSIONAL ENHANCEMENT: Risk Level Detection ---
-            risk_level = "[green]LOW[/]"
+            risk_level = "[bold green]LOW[/]"
             high_risk_ports = [21, 23, 135, 139, 445, 3389, 5900]
             if p in high_risk_ports:
-                risk_level = "[bold red]HIGH RISK[/]"
+                risk_level = "[bold red]CRITICAL[/]"
             elif p in [80, 443, 8080]:
-                risk_level = "[yellow]MEDIUM[/]"
+                risk_level = "[bold yellow]MEDIUM[/]"
 
             with table_lock:
                 results_table.add_row(
-                    str(p), 
-                    f"{service_desc} ({risk_level})",
-                    "OPEN (Active)", 
-                    banner if banner != "No Banner" else "[dim]No Banner Data[/dim]"
+                    str(p).zfill(2),
+                    f"{service_desc[:25]}",
+                    risk_level,
+                    banner if banner != "No Banner" else "[dim]NO_DATA_PKT[/]"
                 )
-            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_desc}) - Risk: {risk_level}")
+            add_system_log(f"[green]PORT FOUND:[/] {target}:{p} ({service_desc})")
         progress.advance(task)
         if stealth: time.sleep(random.uniform(0.01, 0.05))
 
-    with Live(Group(progress, results_table), refresh_per_second=4):
+    # Live Results Presentation using a single Live display group for smoothness
+    display_group = Group(
+        Panel(progress, border_style="green", box=ROUNDED, title="[bold white] SCAN_PROGRESS [/bold white]"),
+        results_table
+    )
+
+    with Live(display_group, refresh_per_second=10, console=console, transient=False) as live:
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            executor.map(worker, ports)
+            # Use list() to ensure all tasks are submitted and generator is consumed
+            list(executor.map(worker, ports))
+    
+    # Final cleanup message
+    console.print("\n[bold green]≺[/] [bold white]PORT_SCAN_COMPLETE[/] [bold green]≻[/]")
+    console.print("[dim]" + "─" * console.width + "[/dim]\n")
+
 
     if not open_ports:
         console.print(Panel("[bold red]No open ports detected.[/]", border_style="red"))
@@ -208,48 +230,73 @@ def network_scanner(threads=250, subnet=None):
     
     # 3. Final Table for Live Display
     table = Table(
-        title=f"🌐 [bold white]Network Discovery Snapshot:[/] [cyan]{subnet}[/]", 
+        title=f"[bold bright_blue]≺[/] [bold white]NETWORK_NODE_MAP:[/] [cyan]{subnet}[/] [bold bright_blue]≻[/]",
         border_style="bright_blue",
-        header_style="bold magenta",
-        show_lines=True,
-        expand=True
+        header_style="bold cyan",
+        show_lines=False,
+        expand=True,
+        box=ROUNDED
     )
-    table.add_column("IP Address", style="bold cyan")
-    table.add_column("MAC Address", style="magenta")
-    table.add_column("Hostname / Device Name", style="white")
-    table.add_column("Open Ports", style="yellow")
+    table.add_column("IPV4_ADDR", style="bold green", no_wrap=True, width=16)
+    table.add_column("PHYS_ADDR", style="magenta", no_wrap=True, width=18)
+    table.add_column("IDENT_DESC", style="cyan", no_wrap=True)
+    table.add_column("VULN_VECTORS", style="bold yellow")
 
-    progress = create_cyber_progress("[bold white]🔍 Exploring Found Hosts...[/]", total=len(results))
+    progress = create_cyber_progress(f"[bold white]⫸[/] [cyan]NODE_SCAN_SEQ:[/] [white]{len(results)} NODES[/]", total=len(results))
     task_id = progress.add_task("Exploring", total=len(results))
 
     def scan_host(ip, mac):
-        hostname = "Unknown"
-        try: hostname = socket.gethostbyaddr(ip)[0]
+        hostname = "UNKNOWN_NODE"
+        try:
+            # Short timeout for hostname resolution to prevent hanging
+            socket.setdefaulttimeout(0.3)
+            hostname = socket.gethostbyaddr(ip)[0]
+            if len(hostname) > 22: hostname = hostname[:19] + "..."
         except: pass
         
         open_ports = []
-        # Check most common ports only for speed in local discovery
-        for p in [80, 443, 21, 22, 3389, 445, 135, 139]:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.3)
-            if s.connect_ex((ip, p)) == 0:
-                service = COMMON_PORTS.get(p, str(p))
-                open_ports.append(f"{p}({service})")
-            s.close()
+        # Parallel port check for each host to maximize throughput
+        check_ports = [80, 443, 22, 3389, 445]
+        
+        def check_p(p):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(0.25)
+                if s.connect_ex((ip, p)) == 0:
+                    return p
+            except: pass
+            finally: s.close()
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as port_executor:
+            found = list(port_executor.map(check_p, check_ports))
+            open_ports = [f"[bold]{p}[/]" for p in found if p]
         
         res = {'ip': ip, 'mac': mac, 'hostname': hostname, 'ports': open_ports}
         final_results.append(res)
+
         
         # Update live table with lock
-        ports_str = ", ".join(open_ports) if open_ports else "[dim]None Detected[/dim]"
+        ports_str = " ".join(open_ports) if open_ports else "[dim]BLOCKED[/dim]"
         with table_lock:
-            table.add_row(ip, mac, hostname, ports_str)
-        add_system_log(f"[cyan]HOST DISCOVERED:[/] {ip} ({hostname})")
+            table.add_row(ip, mac, f"[dim]>>[/] {hostname}", ports_str)
         progress.advance(task_id)
 
-    with Live(Group(progress, table), refresh_per_second=4):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            executor.map(lambda r: scan_host(r['ip'], r['mac']), results)
+    # Combined rendering group for smoother UI performance
+    display_group = Group(
+        Panel(progress, border_style="bright_blue", box=ROUNDED, title="[bold white] DISCOVERY_PROGRESS [/bold white]"),
+        table
+    )
+
+    with Live(display_group, refresh_per_second=10, console=console, transient=False) as live:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(threads, 100)) as executor:
+            # Consume iterator to ensure execution
+            list(executor.map(lambda r: scan_host(r['ip'], r['mac']), results))
+
+    # CRITICAL: Success indicator
+    console.print("\n[bold bright_blue]≺[/] [bold white]NETWORK_DISCOVERY_COMPLETED[/] [bold bright_blue]≻[/]")
+    console.print("[dim]" + "─" * console.width + "[/dim]\n")
+
 
     # --- PHASE 3: FINAL STATUS ---
     console.print(Panel(f"[bold green]Network discovery complete for {subnet}. Found {len(final_results)} active devices.[/]", border_style="green"))

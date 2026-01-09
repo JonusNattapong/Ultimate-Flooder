@@ -13,10 +13,10 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'NTP_SERVERS_FILE': 'ntp_servers.txt',  # ชื่อไฟล์ที่เก็บเซิร์ฟเวอร์ NTP
     'PROXY_FILE': 'proxy.txt',  # ชื่อไฟล์ที่เก็บรายการพร็อกซี
     'TOR_PROXY': 'socks5://127.0.0.1:9050',  # Tor SOCKS proxy สำหรับปกป้องตัวตน
-    'TOR_AUTO_START': False,  # ปิด auto-start Tor เพื่อความปลอดภัย
+    'TOR_AUTO_START': True,  # เปิด auto-start Tor เพื่อความปลอดภัยสูงสุด
     'TOR_PORT': 9050,  # พอร์ตที่ Tor ใช้
     'TOR_BRIDGES': [],  # Tor bridges สำหรับ bypass censorship
-    'VPN_ENABLED': False,  # เปิดใช้งาน VPN integration
+    'VPN_ENABLED': True,  # เปิดใช้งาน VPN integration อัตโนมัติ
     'VPN_INTERFACE': '',  # ชื่อ interface ของ VPN (เช่น 'tun0', 'ppp0')
     'VPN_CHECK_COMMAND': 'ip route show',  # คำสั่งตรวจสอบ VPN status
     'VPN_SERVERS': ['nordvpn', 'expressvpn', 'protonvpn'],  # VPN providers ที่รองรับ
@@ -27,6 +27,7 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
         # เพิ่ม proxy อื่นๆ ได้ที่นี่
     ],
     'PROXY_CHAIN_ROTATION': True,  # หมุน proxy ใน chain แบบสุ่ม
+    'FORCE_AUTO_PROTECT': True, # บังคับใช้ระบบป้องกันทั้งหมดอัตโนมัติ
     'STEALTH_MODE': True,  # โหมด stealth ที่เพิ่ม randomization และลดการตรวจจับ
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์

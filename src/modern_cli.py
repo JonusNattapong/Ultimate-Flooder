@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.prompt import Prompt, IntPrompt
+from rich.prompt import Prompt, IntPrompt, Confirm
 from rich.columns import Columns
 from rich.align import Align
 from rich.live import Live
@@ -20,19 +20,21 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.style import Style
 from rich.layout import Layout
 from rich.padding import Padding
+from rich.box import DOUBLE_EDGE, HEAVY_EDGE
 
+import platform
 from src.config import BANNER, CONFIG, update_config_key
 from src.core.menu import Menu
 from src.core.dispatcher import AttackDispatcher
 from src import security
 from src.utils import (
-    load_file_lines, auto_start_tor_if_needed,
-    generate_stealth_headers, check_vpn_running,
+    load_file_lines, auto_start_tor_if_needed, check_tor_running,
+    generate_stealth_headers, check_vpn_running, auto_connect_vpn,
     add_system_log, SYSTEM_LOGS, stealth_mode_init,
     send_telemetry
 )
-from src.utils.ui import create_cyber_progress
-from src.utils.ui import CyberSpinnerColumn
+from src.attacks.tools import proxy_autopilot
+from src.utils.ui import create_cyber_progress, create_attack_config_panel, create_monitoring_dashboard
 from src.utils.network import get_vpn_ip
 from src.utils.system import cleanup_temp_files
 
@@ -40,7 +42,7 @@ from src.utils.system import cleanup_temp_files
 console = Console(force_terminal=True, color_system="auto")
 
 class AttackMonitor:
-    """Real-time attack monitoring system"""
+    """Real-time attack monitoring system - Movie Style HUD"""
 
     def __init__(self, attack_name, target, duration, max_requests=0):
         self.attack_name = attack_name
@@ -55,13 +57,20 @@ class AttackMonitor:
         self.monitoring = False
         self.monitor_thread = None
         
-        # Initialize Layout and Components Once for Smoothness
+        # Initialize Layout for Cyberpunk HUD (Movie Style)
         self.layout = Layout()
         self.layout.split_column(
-            Layout(name="header", size=3),
-            Layout(name="stats", size=9),
-            Layout(name="system", size=7),
-            Layout(name="progress", size=3)
+            Layout(name="header", size=4),
+            Layout(name="body", ratio=1),
+            Layout(name="footer", size=3)
+        )
+        self.layout["body"].split_row(
+            Layout(name="left", ratio=2),
+            Layout(name="right", ratio=1)
+        )
+        self.layout["left"].split_column(
+            Layout(name="stats_top", ratio=1),
+            Layout(name="logs_bottom", ratio=1)
         )
 
     def start_monitoring(self):
@@ -86,76 +95,125 @@ class AttackMonitor:
     def _monitor_loop(self):
         """Main monitoring loop"""
         while self.monitoring:
-            time.sleep(1)  # Update every second
+            time.sleep(1)
 
     def get_stats_panel(self):
-        """Generate the statistics panel with high-performance rendering"""
+        """Generate a Cinema-style Matrix/Hacker HUD - Optimized for stability & high-speed display"""
         elapsed = time.time() - self.start_time
+        
+        # High-performance counter for visual "flicker" effects
+        v_frame = int(time.time() * 15)
         
         if self.max_requests > 0:
             progress_percent = min(100, (self.packets_sent / self.max_requests) * 100)
-            time_info = f"{self.packets_sent:,}/{self.max_requests:,} reqs"
         else:
             progress_percent = min(100, (elapsed / self.duration) * 100)
-            time_info = f"{max(0, self.duration - int(elapsed))}s left"
 
-        # System stats (Fast Update)
-        try:
-            cpu_percent = psutil.cpu_percent()
-            memory = psutil.virtual_memory()
-            memory_percent = memory.percent
-            memory_used = memory.used / (1024**3)
-            memory_total = memory.total / (1024**3)
-        except:
-            cpu_percent = memory_percent = memory_used = memory_total = 0
+        # Cache cpu/mem to avoid high-frequency jitter (Every 2 seconds)
+        if not hasattr(self, '_last_sys_check') or time.time() - self._last_sys_check > 2.0:
+            try:
+                self._cpu = psutil.cpu_percent()
+                self._mem = psutil.virtual_memory().percent
+            except:
+                self._cpu = self._mem = 0
+            self._last_sys_check = time.time()
 
-        # Update Header
-        self.layout["header"].update(Panel(
-            f"[bold cyan]🎯 {self.attack_name}[/bold cyan] | [bold white]Target:[/bold white] {self.target} | [bold yellow]Time:[/bold yellow] {time_info}",
-            border_style="cyan", padding=(0, 1)
-        ))
-
-        # Update Attack Statistics
-        stats_table = Table(show_header=True, header_style="bold magenta", show_edge=False, expand=True)
-        stats_table.add_column("Metric", style="cyan")
-        stats_table.add_column("Current Value", style="white")
-        stats_table.add_column("Rate/sec", style="green")
-
-        packets_per_sec = self.packets_sent / max(1, elapsed)
-        bytes_per_sec = self.bytes_sent / max(1, elapsed)
-        success_rate = (self.packets_sent / max(1, self.packets_sent + self.packets_failed)) * 100
-
-        stats_table.add_row("PPS (Packets/s)", f"{self.packets_sent:,}", f"{packets_per_sec:.0f}")
-        stats_table.add_row("Failed Packets", f"[bold red]{self.packets_failed:,}[/bold red]", "")
-        stats_table.add_row("Throughput", f"{self.bytes_sent / 1024 / 1024:.2f} MB", f"{bytes_per_sec / 1024 / 1024:.2f} MB/s")
-        stats_table.add_row("Active Load", f"Threads: {security.active_threads} | Sockets: {security.active_sockets}", "")
-        stats_table.add_row("Reliability", f"{success_rate:.1f}%", "[green]STABLE[/green]" if success_rate > 95 else "[red]CRITICAL FAILURE[/red]" if success_rate == 0 else "[yellow]FLUCTUATING[/yellow]")
-
-        self.layout["stats"].update(Panel(stats_table, title="[bold magenta]📊 Attack Mission Control[/bold magenta]", border_style="magenta"))
-
-        # Update System Resources
-        system_table = Table(show_header=True, header_style="bold yellow", show_edge=False, expand=True)
-        system_table.add_column("Resource", style="cyan")
-        system_table.add_column("Usage", style="white")
-        system_table.add_column("Status", style="green")
-
-        cpu_status = "�" if cpu_percent < 80 else "🔴"
-        mem_status = "🟢" if memory_percent < 80 else "🔴"
-
-        system_table.add_row("Process CPU", f"{cpu_percent:.1f}%", cpu_status)
-        system_table.add_row("System RAM", f"{memory_percent:.1f}% ({memory_used:.1f}G/{memory_total:.1f}G)", mem_status)
-
-        self.layout["system"].update(Panel(system_table, title="[bold yellow]🖥️  System Resource Grid[/bold yellow]", border_style="yellow"))
-
-        # Update Progress Bar (Smooth Static Render)
-        done = int(progress_percent / 100 * 40)
-        bar = "[bold green]█" * done + "[dim white]█" * (40 - done)
+        # --- HEADER SECTION ---
+        header_table = Table.grid(expand=True)
+        header_table.add_column(justify="left", ratio=1)
+        header_table.add_column(justify="center", ratio=3)
+        header_table.add_column(justify="right", ratio=1)
         
-        self.layout["progress"].update(Panel(
-            Align.center(f"{bar} [bold white]{progress_percent:.1f}%[/bold white]"),
-            title="[bold blue]⏳ Overall Task Completion[/bold blue]", 
-            border_style="blue"
-        ))
+        # Dynamic tag that feels alive
+        tag = f"<{self.attack_name.upper()}>"
+        phase = ["[dim]LOAD[/]", "[bold cyan]SYNC[/]", "[bold green]BUSY[/]", "[bold yellow]PEAK[/]"][v_frame % 4]
+        
+        header_table.add_row(
+            Text(f"ROOT_USER", style="bold red"),
+            Text(f"TARGET_NODE: [white]{self.target}[/] | STATE: {phase}", style="bold cyan"),
+            Text(time.strftime("%H:%M:%S"), style="bold white")
+        )
+
+        
+        header_panel = Panel(
+            header_table,
+            title="[ SYSTEM_KERNEL_ACCESS ]",
+            border_style="bright_blue",
+            box=DOUBLE_EDGE
+        )
+        self.layout["header"].update(header_panel)
+
+        # --- LEFT STATS TOP ---
+        pps = self.packets_sent / max(1, elapsed)
+        bps = self.bytes_sent / max(1, elapsed) / 1024 / 1024 # MB/s
+        total_p = self.packets_sent + self.packets_failed
+        success_rate = (self.packets_sent / max(1, total_p)) * 100
+        
+        net_table = Table(show_header=True, header_style="bold magenta", box=HEAVY_EDGE, expand=True)
+        net_table.add_column("VECTOR_METRIC", style="cyan")
+        net_table.add_column("LIVE_FEED", style="white")
+        net_table.add_column("STATUS", justify="right")
+        
+        net_table.add_row("PACKET_VELOCITY", f"{pps:,.0f} PPS", "[bold green]SYNCED[/]")
+        net_table.add_row("BITSTREAM_FLOW", f"{bps:.2f} MB/s", "[bold white]ACTIVE[/]")
+        net_table.add_row("TOTAL_PAYLOAD", f"{self.packets_sent:,}", "[bold magenta]INJECTING[/]")
+        
+        status_color = "green" if success_rate > 90 else "white" if self.packets_sent == 0 else "yellow" if success_rate > 50 else "red"
+        net_table.add_row("INTEGRITY_INDEX", f"{success_rate:.1f}%", f"[bold {status_color}]ANALYZING[/]")
+
+        self.layout["stats_top"].update(Panel(net_table, title="[ REALTIME_INTEL_STREAM ]", border_style="magenta"))
+
+        # --- LEFT LOGS BOTTOM ---
+        # Persistent logs instead of random ones per frame
+        if not hasattr(self, '_cached_logs'):
+            self._cached_logs = [
+                "> INJECTING PAYLOAD DATA...",
+                "> BYPASSING SECURE_TUNNEL...",
+                "> ENCRYPTING DATASTREAM...",
+                "> TARGET_BUFFER_SYNC..."
+            ]
+        
+        log_content = Text()
+        for log in self._cached_logs:
+            log_content.append(f"{log}\n", style="dim green")
+        
+        self.layout["logs_bottom"].update(Panel(log_content, title="[ KERNEL_LOG_PIPE ]", border_style="green"))
+
+        # --- RIGHT SIDE: SYSTEM INFO ---
+        sys_info = Text()
+        sys_info.append("\n  [CORE_ANALYSIS]\n", style="bold yellow")
+        sys_info.append(f"  CPU_X: {self._cpu}%\n", style="white")
+        sys_info.append(f"  MEM_X: {self._mem}%\n", style="white")
+        sys_info.append(f"  THRDs: {security.active_threads}\n", style="white")
+        sys_info.append(f"  SOCKs: {security.active_sockets}\n", style="white")
+        
+        sys_info.append("\n  [ENCRYPTION]\n", style="bold red")
+        # Visual "key" that shifts slightly for cyber feel without being random
+        seed = int(time.time() / 5) * 12345
+        sys_info.append(f"  KEY: {abs(hash(seed)) % 0xFFFFFFFF:X}\n", style="dim white")
+        sys_info.append(f"  CYPHER: AES-256-GCM\n", style="dim white")
+        
+        status_msg = "OPTIMAL" if success_rate > 5 or self.packets_sent == 0 else "DEGRADED"
+        status_color = "bold green" if status_msg == "OPTIMAL" else "bold red"
+        sys_info.append(f"\n  STATE: ", style="white")
+        sys_info.append(status_msg, style=status_color)
+        
+        # Add a flickering "scanning" indicator
+        if v_frame % 2 == 0:
+            sys_info.append("\n\n  [⚡] INJECTING...", style="bold magenta")
+        else:
+            sys_info.append("\n\n  [ ] INJECTING...", style="dim magenta")
+
+        self.layout["right"].update(Panel(sys_info, title="[ HUB_STATUS ]", border_style="yellow"))
+
+
+        # --- FOOTER: PROGRESS ---
+        done = int(progress_percent / 100 * 60)
+        p_bar = "█" * done + "▒" * (60 - done)
+        footer_content = Align.center(
+            Text.from_markup(f"[bold cyan]TARGET: [white]{self.target}[/] | PROGRESS:[/][bold green] {p_bar} [/][bold white]{progress_percent:.1f}%[/]")
+        )
+        self.layout["footer"].update(Panel(footer_content, border_style="bright_blue", box=DOUBLE_EDGE))
 
         return self.layout
 
@@ -173,12 +231,17 @@ class ModernCLI:
     # Locked Targets Library
     locked_targets = []
 
+    # Status Caching for smoother menu
+    _cached_tor_status = None
+    _last_tor_check = 0
+
     @staticmethod
     def manage_targets():
-        """Target Library Management Sub-menu"""
+        """Target Library Management Sub-menu - Optimized for speed"""
         while True:
-            os.system('cls' if os.name == 'nt' else 'clear')
+            console.clear()
             console.print(Align.center(Text(BANNER, style="bold cyan")))
+
             
             table = Table(title="💎 [bold magenta]Target Library (Locked Targets)[/bold magenta]", border_style="bright_blue", expand=True)
             table.add_column("ID", style="cyan", justify="center", width=4)
@@ -249,120 +312,73 @@ class ModernCLI:
 
     @staticmethod
     def display_menu():
-        """Returns the menu and dashboard layout content"""
-        # Menu Table
-        table = Table(
-            show_header=True,
-            header_style="bold blue",
-            border_style="blue",
-            expand=True
-        )
-        table.add_column("Category / ID", style="cyan", justify="left")
-        table.add_column("Attack Type", style="white")
-        table.add_column("Layer", style="green", justify="center", width=6)
-        table.add_column("Root Needed", style="red", justify="center", width=12)
-
-        layer_mapping = {
-            "1": "7", "2": "7", "3": "4", "4": "4", "5": "7", "6": "4",
-            "7": "C2", "8": "7", "9": "4", "10": "4", "11": "4", "12": "7",
-            "13": "7", "14": "7", "15": "7", "16": "7", "17": "Scan", "18": "Bot",
-            "19": "CMD", "20": "Net", "21": "OSINT", "22": "AI", "23": "Scout",
-            "24": "Cracker", "25": "OSINT", "26": "Proxy", "27": "WiFi",
-            "28": "Sniff", "29": "Exploit", "30": "OpSec", "31": "Vuln", "32": "Sniper",
-            "33": "L7", "34": "L7", "35": "L4"
-        }
-
-        # Categories ordering
-        categories = [
-            "Management", "Layer 7", "Layer 4", "Amplification", 
-            "Scanning & Recon", "Botnet & C2", "Exploitation", "Research & AI"
-        ]
-
-        attacks = Menu.ATTACKS.copy()
+        """Returns the menu with a Classic Terminal / Hacker aesthetic"""
+        # Classic Header
+        classic_banner = Align.center(Text(BANNER, style="bold bright_green"))
         
-        # Inject custom shell if C2 is active
-        if ModernCLI.c2_server and ModernCLI.c2_server.running:
-            attacks["00"] = {"name": "Enter C2 Interactive Shell", "needs_root": False, "category": "Botnet & C2"}
+        # Menu Columns (3 columns for classic density)
+        menu_grid = Table.grid(expand=True, padding=0)
+        menu_grid.add_column(ratio=1)
+        menu_grid.add_column(ratio=1)
+        menu_grid.add_column(ratio=1)
 
-        for cat in categories:
-            # Add a divider for each category
-            table.add_row(f"[bold yellow]── {cat} ──[/bold yellow]", "", "", "")
-            
-            cat_attacks = {k: v for k, v in attacks.items() if v.get("category") == cat}
-            for key, attack in cat_attacks.items():
-                layer = layer_mapping.get(key, "?")
-                root_needed = "✓" if attack["needs_root"] else "✗"
-                root_style = "red" if attack["needs_root"] else "green"
+        attacks = Menu.ATTACKS
+        keys = sorted([k for k in attacks.keys() if k.isdigit()], key=int)
+        
+        # Distribute keys into 3 columns
+        total = len(keys)
+        per_col = (total + 2) // 3
+        
+        rows = []
+        for i in range(per_col):
+            row_data = []
+            for j in range(3):
+                idx = i + (j * per_col)
+                if idx < total:
+                    k = keys[idx]
+                    name = attacks[k]["name"]
+                    # Classic look: [01] Attack Name
+                    row_data.append(f"[bold green][{k.zfill(2)}][/bold green] [white]{name[:28]}[/white]")
+                else:
+                    row_data.append("")
+            rows.append(row_data)
 
-                table.add_row(
-                    f"  [bold cyan]{key}[/bold cyan]",
-                    attack["name"],
-                    f"[bold cyan]{layer}[/bold cyan]",
-                    f"[{root_style}]{root_needed}[/{root_style}]"
-                )
+        for r in rows:
+            menu_grid.add_row(*r)
 
-        # 3. Live Logs / Events Dashboard
-        if not SYSTEM_LOGS:
-            log_content = "[dim]Waiting for network events...[/dim]"
-        else:
-            # logs are already chronological in SYSTEM_LOGS
-            log_content = "\n".join(SYSTEM_LOGS[-12:])
-
-        # 4. Services Status Logic
-        services_table = Table(box=None, expand=True)
-        services_table.add_column("Service", style="cyan")
-        services_table.add_column("Status", style="bold")
+        # Status Line (Classic Style) with Caching for smoothness
+        c2_status = "[bold green]ONLINE[/bold green]" if ModernCLI.c2_server and ModernCLI.c2_server.running else "[bold red]OFFLINE[/bold red]"
         
-        c2_status = f"[green]ONLINE (Port {ModernCLI.c2_server.port})[/green]" if ModernCLI.c2_server and ModernCLI.c2_server.running else "[red]OFFLINE[/red]"
+        # Only check TOR every 5 seconds to prevent menu lag
+        if time.time() - ModernCLI._last_tor_check > 5.0 or ModernCLI._cached_tor_status is None:
+            ModernCLI._cached_tor_status = "[bold green]ACTIVE[/bold green]" if check_tor_running() else "[bold red]INACTIVE[/bold red]"
+            ModernCLI._last_tor_check = time.time()
         
-        if ModernCLI.active_bot:
-            if ModernCLI.active_bot.connected:
-                bot_status = "[green]RUNNING (Connected)[/green]"
-            else:
-                bot_status = "[yellow]RETRYING (Auto-Reconnect...)[/yellow]"
-        else:
-            bot_status = "[red]STOPPED[/red]"
-        
-        services_table.add_row("C2 Center", c2_status)
-        services_table.add_row("Local Bot", bot_status)
-        if ModernCLI.c2_server:
-            services_table.add_row("Bots Count", f"[white]{len(ModernCLI.c2_server.bots)}[/white]")
-        
-        # Locked Targets Status
+        tor_status = ModernCLI._cached_tor_status
         target_count = len(ModernCLI.locked_targets)
-        target_color = "green" if target_count > 0 else "red"
-        services_table.add_row("Locked Targets", f"[{target_color}]{target_count}[/{target_color}]")
-        
-        # --- NEW LAYOUT REARRANGEMENT ---
-        
-        # Create a single column layout for everything
-        layout_content = Table.grid(expand=True)
-        layout_content.add_column()
 
-        # 1. Top: ASCII Banner
-        layout_content.add_row(Align.center(Text(BANNER, style="bold cyan")))
-        layout_content.add_row("")
-
-        # 2. Middle: Menu Table
-        layout_content.add_row(table)
-        layout_content.add_row("")
-
-        # 3. Bottom: Services and Logs side-by-side to save space
-        bottom_grid = Table.grid(expand=True, padding=1)
-        bottom_grid.add_column(ratio=1) # Services
-        bottom_grid.add_column(ratio=2) # Logs
         
-        bottom_grid.add_row(
-            Panel(services_table, title="[bold blue][SAT] Active Services[/bold blue]", border_style="blue"),
-            Panel(log_content, title="[bold yellow][TIME] System Logs[/bold yellow]", border_style="yellow", height=10)
+        status_line = Padding(
+            Text.from_markup(
+                f"STATUS: C2:{c2_status} | TOR:{tor_status} | TARGETS:[bold yellow]{target_count}[/bold yellow] | "
+                f"SYSTEM:[bold cyan]{platform.system().upper()}[/bold cyan]"
+            ),
+            (1, 0)
         )
-        
-        layout_content.add_row(bottom_grid)
-        layout_content.add_row("")
-        layout_content.add_row(Align.center("[bold red]⚠️  WARNING: UNAUTHORIZED DISTRIBUTION OR MISUSE WILL BE PROSECUTED TO THE FULLEST EXTENT OF THE LAW.[/bold red]"))
-        layout_content.add_row(Align.center("[dim white]© 2026 Nattapong Tapachoom. All Rights Reserved.[/dim white]"))
 
-        return Panel(layout_content, title="[bold magenta] IP-HUNTER v2.5.0 Dashboard [/bold magenta]", border_style="bright_blue")
+        # Build final classic layout
+        layout = Table.grid(expand=True)
+        layout.add_column()
+        layout.add_row(classic_banner)
+        layout.add_row(Panel(menu_grid, title="[bold white] CORE COMMANDS [/bold white]", border_style="green"))
+        layout.add_row(status_line)
+        
+        # Mini Logs at the bottom
+        if SYSTEM_LOGS:
+            logs = "\n".join(SYSTEM_LOGS[-5:])
+            layout.add_row(Panel(logs, title="[bold green] SYSTEM_OUTPUT [/bold green]", border_style="dim green"))
+
+        return layout
 
     @staticmethod
     def get_choice():
@@ -671,7 +687,7 @@ class ModernCLI:
         max_requests = 0
         proxies = []
         use_tor = False
-        stealth_mode = False # Initialize to fix NameError
+        stealth_mode = False 
         use_vpn = False
         use_proxy_chain = False
 
@@ -683,7 +699,7 @@ class ModernCLI:
                     proxies = load_file_lines(proxy_file)
                     console.print(f"[green]✅ Loaded {len(proxies)} proxies[/green]")
             
-            use_tor = Prompt.ask("[bold yellow]Use Tor for anonymity? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            use_tor = CONFIG.get('FORCE_AUTO_PROTECT', False) or Prompt.ask("[bold yellow]Use Tor for anonymity? (y/n)[/bold yellow]", default="y").strip().lower() == 'y'
             if use_tor:
                 console.print("[cyan]🔄 Checking Tor status...[/cyan]")
                 tor_success, tor_message = auto_start_tor_if_needed(CONFIG['TOR_PORT'])
@@ -694,7 +710,7 @@ class ModernCLI:
                     console.print("[yellow]⚠️  Continuing without Tor...[/yellow]")
                     use_tor = False
             
-            stealth_mode = Prompt.ask("[bold yellow]Enable stealth mode (advanced anti-trace)? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            stealth_mode = CONFIG.get('FORCE_AUTO_PROTECT', False) or Prompt.ask("[bold yellow]Enable stealth mode (advanced anti-trace)? (y/n)[/bold yellow]", default="y").strip().lower() == 'y'
             if stealth_mode:
                 console.print("[cyan]🛡️  Initializing stealth mode...[/cyan]")
                 cleanup_success, cleanup_msg = stealth_mode_init()
@@ -705,13 +721,16 @@ class ModernCLI:
                 console.print("[green]✅ Stealth mode activated[/green]")
             
             # VPN Integration
-            use_vpn = Prompt.ask("[bold yellow]Use VPN for additional protection? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+            use_vpn = CONFIG.get('FORCE_AUTO_PROTECT', False) or Prompt.ask("[bold yellow]Use VPN for additional protection? (y/n)[/bold yellow]", default="y").strip().lower() == 'y'
             if use_vpn:
                 console.print("[cyan]🔍 Checking VPN status...[/cyan]")
+                # Try auto-connect first
+                console.print("[cyan]🛡️  Ensuring VPN protection...[/cyan]")
+                auto_connect_vpn()
+                
                 vpn_running, vpn_message = check_vpn_running()
                 if vpn_running:
                     console.print(f"[green]✅ {vpn_message}[/green]")
-                    # Get VPN IP for verification
                     vpn_ip = get_vpn_ip()
                     if vpn_ip:
                         console.print(f"[blue]📍 VPN IP: {vpn_ip}[/blue]")
@@ -721,18 +740,23 @@ class ModernCLI:
                     console.print("[yellow]💡  Supported VPNs: NordVPN, ExpressVPN, ProtonVPN[/yellow]")
                     use_vpn = False
             
-            # Proxy Chain Configuration
-            use_proxy_chain = False
+            use_proxy_chain = CONFIG.get('FORCE_AUTO_PROTECT', False)
+            if not proxies and use_proxy_chain:
+                console.print("[cyan]🔄 Auto-scraping proxies for maximum protection...[/cyan]")
+                proxies = proxy_autopilot(silent=True)
+                if proxies:
+                    console.print(f"[green]✅ Auto-loaded {len(proxies)} fresh proxies[/green]")
+
             if proxies:
-                use_proxy_chain = Prompt.ask("[bold yellow]Enable proxy chain rotation? (y/n)[/bold yellow]", default="n").strip().lower() == 'y'
+                if not CONFIG.get('FORCE_AUTO_PROTECT', False):
+                    use_proxy_chain = Prompt.ask("[bold yellow]Enable proxy chain rotation? (y/n)[/bold yellow]", default="y").strip().lower() == 'y'
+                
                 if use_proxy_chain:
                     console.print("[cyan]🔗 Setting up proxy chain...[/cyan]")
                     from src.utils.network import validate_proxy_chain, create_proxy_chain
-                    # Validate and setup proxy chain
-                    valid_proxies = validate_proxy_chain(proxies)
-                    if len(valid_proxies) >= 2:
-                        console.print(f"[green]✅ Proxy chain ready with {len(valid_proxies)} proxies[/green]")
-                        proxies = create_proxy_chain(valid_proxies, CONFIG['PROXY_CHAIN_MAX_LENGTH'])
+                    if len(proxies) >= 2:
+                        console.print(f"[green]✅ Proxy chain ready with {len(proxies)} proxies[/green]")
+                        proxies = create_proxy_chain(proxies, CONFIG['PROXY_CHAIN_MAX_LENGTH'])
                     else:
                         console.print("[red]❌ Not enough valid proxies for chaining[/red]")
                         use_proxy_chain = False
@@ -790,7 +814,6 @@ class ModernCLI:
                         console.print("[cyan]Commands:[/cyan] list, ping, attack <target> <port> <duration> <method>, info, exit")
                         continue
                     
-                    # Send command through the running server
                     if ModernCLI.c2_server:
                         ModernCLI.c2_server.broadcast(cmd)
                         console.print(f"[green]📡 Broadcasted:[/green] {cmd}")
@@ -807,73 +830,75 @@ class ModernCLI:
         if not attack_info:
             return
 
-        # Special UI for C2 Server
         if str(choice) == "7":
             ModernCLI.c2_server = AttackDispatcher.execute(choice, params)
             console.print("[bold green]✅ C2 Server started in background.[/bold green]")
             time.sleep(1)
             return
 
-        # Special UI for Bot Client
         if str(choice) == "18":
             ModernCLI.active_bot = AttackDispatcher.execute(choice, params)
             console.print("[bold green]✅ Bot instance started in background.[/bold green]")
             time.sleep(1)
             return
 
-        # Attack summary table
-        table = Table(title="[bold red]🚀 Attack Configuration[/bold red]", show_header=True, header_style="bold red")
-        table.add_column("Parameter", style="cyan", width=12)
-        table.add_column("Value", style="white", width=25)
+        # Advanced Attack Deployment UI
+        os.system('cls' if os.name == 'nt' else 'clear')
+        # Title Header with Cyberpunk brackets
+        header_text = Text.from_markup(f"[bold cyan]≺[/] [bold bright_white]MISSION_PROTOCOL:[/][bold red] {attack_info['name'].upper()} [/][bold cyan]≻[/]")
+        console.print(Align.center(header_text))
+        console.print(Align.center(Text("-" * 80, style="dim white")))
 
-        table.add_row("Attack Type", attack_info["name"])
-        table.add_row("Target", params["target"])
+        # 3-Panel Briefing Layout
+        briefing_table = Table.grid(expand=True, padding=1)
+        briefing_table.add_column(ratio=1) # Left: Intel
+        briefing_table.add_column(ratio=1) # Mid: Specs
+        briefing_table.add_column(ratio=1) # Right: OpSec
+
+        # --- INTEL PANEL ---
+        intel = Table.grid(padding=(0, 1))
+        intel.add_row("[bold cyan]TARGET_ADR[/]", f"[white]{params['target']}[/]")
+        if choice != "19" and "port" in params:
+            intel.add_row("[bold cyan]TARGET_PRT[/]", f"[white]{params['port']}[/]")
+        intel.add_row("[bold cyan]STRAT_CAT[/]", f"[dim white]{attack_info.get('category', 'L7/L4 Mixed')}[/]")
+        intel.add_row("[bold cyan]LOCK_STAT[/]", "[bold green]TARGET_ACQUIRED[/]")
         
-        if choice == "17":
-            table.add_row("Ports", params["port_text"])
-        elif choice == "21":
-            table.add_row("Task", "Deep OSINT Tracking")
-        elif choice == "22":
-            table.add_row("Mode", "AI-Adaptive (Smart)")
-        elif choice == "23":
-            table.add_row("Task", "Vulnerability Search")
-        elif choice == "24":
-            table.add_row("Service", f"{params['service']} Crack")
-        elif choice == "25":
-            table.add_row("Task", "Subdomain Hunting")
-        elif choice == "19":
-            table.add_row("Payload", "ICMP Hybrid Flood")
-        else:
-            table.add_row("Port", str(params["port"]))
+        # --- SPECS PANEL ---
+        specs = Table.grid(padding=(0, 1))
+        specs.add_row("[bold yellow]ENG_THRDS[/]", f"[white]{params['threads']}[/]")
+        if "duration" in params and params["duration"] > 0:
+            specs.add_row("[bold yellow]BURST_DUR[/]", f"[white]{params['duration']} sec[/]")
+        if params.get("max_requests", 0) > 0:
+            specs.add_row("[bold yellow]LIMIT_CAP[/]", f"[white]{params['max_requests']} reqs[/]")
+        specs.add_row("[bold yellow]ORBIT_L00P[/]", "[bold green]STABILIZED[/]")
 
-        table.add_row("Threads", str(params["threads"]))
+        # --- OPSEC PANEL ---
+        def get_status(val): return "[bold green]ACTIVE[/]" if val else "[dim red]BYPASS[/]"
+        
+        opsec = Table.grid(padding=(0, 1))
+        opsec.add_row("[bold green]TOR_PROXY[/]", get_status(params.get("use_tor")))
+        opsec.add_row("[bold green]SLTH_MODE[/]", get_status(params.get("stealth_mode")))
+        opsec.add_row("[bold green]VPN_CRYPT[/]", get_status(params.get("use_vpn")))
+        if params.get("proxies"):
+            opsec.add_row("[bold green]PRX_POOL [/]", f"[bold cyan]{len(params['proxies'])} NODES[/]")
 
-        if choice not in ["17", "20", "21", "23", "25", "31", "32"]:
-            table.add_row("Duration", f"{params['duration']}s")
-            table.add_row("Proxies", str(len(params["proxies"])))
-            if params.get("use_tor"):
-                table.add_row("Tor", "Enabled")
-            if params.get("stealth_mode"):
-                table.add_row("Stealth Mode", "Active")
-            if params.get("use_vpn"):
-                table.add_row("VPN", "Enabled")
-            if params.get("use_proxy_chain"):
-                table.add_row("Proxy Chain", "Active")
+        briefing_table.add_row(
+            Panel(intel, title="[bold cyan]📡 TARGET_INTEL[/]", border_style="cyan", box=HEAVY_EDGE),
+            Panel(specs, title="[bold yellow]🚀 PAYLOAD_SPECS[/]", border_style="yellow", box=HEAVY_EDGE),
+            Panel(opsec, title="[bold green]🛡️ OPSEC_LAYERS[/]", border_style="green", box=HEAVY_EDGE)
+        )
 
-        console.print(table)
+        console.print(briefing_table)
         console.print()
 
-        # Custom UI tools (Synchronous execution)
         if str(choice) in ["17", "20", "21", "23", "24", "25", "31", "32"]:
             AttackDispatcher.execute(choice, params)
             return
 
-        # Special handling for AI-Adaptive (Synchronous due to internal monitoring)
         if str(choice) == "22":
             AttackDispatcher.execute(choice, params)
             return
 
-        # Initialize monitor
         current_monitor = AttackMonitor(
             attack_info["name"], 
             params["target"], 
@@ -882,29 +907,30 @@ class ModernCLI:
         )
         current_monitor.start_monitoring()
 
-        # Start aesthetic attack animation sequence
         from src.utils.ui import create_cyber_progress
         with create_cyber_progress("[bold cyan][SAT] CALIBRATING ATTACK VECTORS...[/bold cyan]") as progress:
             task = progress.add_task("Calibrating", total=100)
             
-            time.sleep(0.4)
-            progress.console.print("[dim white]  > Allocating thread pools...[/]")
-            progress.update(task, advance=30)
+            # Simulated heavy lifting with more "active" feedback
+            steps = [
+                ("Allocating thread pools...", 25),
+                ("Establishing bypass tunnels...", 25),
+                ("Finalizing synchronization...", 25),
+                ("Optimizing throughput...", 25)
+            ]
             
-            time.sleep(0.3)
-            progress.console.print("[dim white]  > Establishing bypass tunnels...[/]")
-            progress.update(task, advance=30)
-            
-            time.sleep(0.4)
-            progress.console.print("[dim white]  > Finalizing synchronization...[/]")
-            progress.update(task, advance=40)
+            for msg, adv in steps:
+                progress.console.print(f"[dim white]  > {msg}[/]")
+                progress.update(task, advance=adv)
+                # Faster transition for smoother feel
+                time.sleep(random.uniform(0.1, 0.25))
 
         console.print("[bold bright_green]🚀 ATTACK SEQUENCE INITIALIZED![/bold bright_green]")
+
         console.print("[bold yellow]💡 Press Ctrl+C to stop the attack[/bold yellow]")
         console.print("[bold cyan]📊 Real-time monitoring active...[/bold cyan]")
         console.print()
 
-        # Start attack in background
         attack_thread = threading.Thread(
             target=AttackDispatcher.execute,
             args=(choice, params, current_monitor),
@@ -912,30 +938,21 @@ class ModernCLI:
         )
         attack_thread.start()
 
-        # Start real-time monitoring display
         try:
-            # Prime CPU stats
-            psutil.cpu_percent()
-            
-            with Live(current_monitor.get_stats_panel(), refresh_per_second=4, screen=True) as live:
+            # Live monitoring loop - Optimized for smoothness (10 FPS)
+            with Live(current_monitor.layout, refresh_per_second=10, transient=True) as live:
                 start_time = time.time()
                 while time.time() - start_time < params["duration"]:
-                    # Check if max requests reached
                     if params.get("max_requests", 0) > 0 and current_monitor.packets_sent >= params["max_requests"]:
                         break
-
-                    live.update(current_monitor.get_stats_panel())
+                    
+                    # Trigger layout update data
+                    current_monitor.get_stats_panel()
+                    
+                    # Smaller sleep for better responsiveness to Ctrl+C
                     time.sleep(0.1)
-                    try:
-                        import select
-                        import sys
-                        if select.select([sys.stdin], [], [], 0.0)[0]:
-                            if sys.stdin.read(1) == '\x03':  # Ctrl+C
-                                raise KeyboardInterrupt
-                    except:
-                        pass
-
         except KeyboardInterrupt:
+
             console.print("\n[bold yellow]⚠️  Attack interrupted by user[/bold yellow]")
         finally:
             if current_monitor:
@@ -946,7 +963,6 @@ class ModernCLI:
     def display_attack_complete(choice):
         """Display completion message based on tool type"""
         is_attack = str(choice) in ["1", "2", "3", "4", "5", "6", "8", "9", "10", "11", "12", "13", "14", "15", "16"]
-        
         msg = "[bold green]✅ Attack completed successfully![/bold green]" if is_attack else "[bold green]✅ Task completed successfully![/bold green]"
         panel = Panel(
             f"{msg}\n"
@@ -981,93 +997,116 @@ class ModernCLI:
 
     @staticmethod
     def startup_sequence():
-        """Cool startup animation"""
-        # IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
-        
-        # Fire and forget telemetry in a background thread
+        """Animated startup sequence for IP-HUNTER"""
         threading.Thread(target=send_telemetry, args=({},), daemon=True).start()
-
-        os.system('cls' if os.name == 'nt' else 'clear')
+        console.clear()
         
-        # Show Banner during startup
+        # ASCII Animation (Cyberpunk Style)
+        lines = BANNER.split('\n')
+        with Live(Align.center(""), refresh_per_second=20, transient=True) as live:
+            for i in range(len(lines)):
+                current = "\n".join(lines[:i+1])
+                live.update(Align.center(Text(current, style="bold cyan")))
+                time.sleep(0.02)
+            
+            # Flickering "Glitch" Effect
+            for _ in range(2):
+                live.update(Align.center(Text(BANNER, style="bold white")))
+                time.sleep(0.04)
+                live.update(Align.center(Text(BANNER, style="bold cyan")))
+                time.sleep(0.04)
+        
         console.print(Align.center(Text(BANNER, style="bold cyan")))
         console.print("\n")
         
-        with Progress(
-            SpinnerColumn("aesthetic"),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(bar_width=40, complete_style="cyan", finished_style="bright_green"),
-            transient=True
-        ) as progress:
-            task = progress.add_task("[bold cyan]INITIALIZING IP-HUNTER CORE...[/]", total=100)
-            
-            steps = [
-                "AUTHENTICATING SECURITY TOKENS...",
-                "BYPASSING SANDBOX ENVIRONMENTS...",
-                "ESTABLISHING SECURE TUNNELS...",
-                "PATCHING KERNEL MODULES...",
-                "GATHERING INTELLIGENCE...",
-                "ACCESS GRANTED"
-            ]
-            
-            for step in steps:
-                progress.update(task, description=f"[bold white]{step}[/]", advance=16.7)
-                time.sleep(random.uniform(0.2, 0.5))
+        boot_steps = [
+            "KERNEL_CORE: SYSCALL_INIT",
+            "SESS_AUTH: AUTHENTICATING_USER",
+            "SECURE_LAYER: BYPASSING_SANDBOX",
+            "NET_TUNNEL: ESTABLISHING_NODES",
+            "MODULE_PATCH: MEM_INJECTION",
+            "INTEL_RECON: DATA_SYNC"
+        ]
         
+        for step in boot_steps:
+            console.print(f"[green][[  [bold]..[/bold]  ]][/green] {step}...", end="\r")
+            time.sleep(random.uniform(0.05, 0.12))
+            console.print(f"[green][[  [bold]OK[/bold]  ]][/green] {step}")
+        
+        time.sleep(0.3)
+        console.clear()
+
+
+        if CONFIG.get('TOR_AUTO_START'):
+            console.print(f"[yellow][[ WAIT ]][/yellow] INITIATING TOR GATEWAY...", end="\r")
+            tor_success, _ = auto_start_tor_if_needed(CONFIG['TOR_PORT'])
+            if tor_success:
+                console.print(f"[green][[  OK  ]][/green] TOR GATEWAY ACTIVE")
+            else:
+                console.print(f"[red][[ FAIL ]][/red] TOR GATEWAY FAILED")
+                time.sleep(0.5)
+
+        if CONFIG.get('VPN_ENABLED') or CONFIG.get('FORCE_AUTO_PROTECT'):
+            console.print(f"[yellow][[ WAIT ]][/yellow] SECURING VPN TUNNEL...", end="\r")
+            auto_connect_vpn()
+            console.print(f"[green][[  OK  ]][/green] VPN TUNNEL READY")
+            
+        console.print(f"[green][[ DONE ]][/green] ACCESS GRANTED")
+        time.sleep(0.4)
         os.system('cls' if os.name == 'nt' else 'clear')
 
     @staticmethod
     def run():
-        """Main CLI loop with live updates"""
-        # --- DRM LICENSE CHECK ---
+        """Main CLI loop with optimized rendering and interaction"""
         security.drm_check()
-        
         ModernCLI.startup_sequence()
-        os.system('cls' if os.name == 'nt' else 'clear')
+        # Use direct clear for better Windows terminal compatibility
+        console.clear()
 
         while True:
-            # Show the dashboard and menu
             console.print(ModernCLI.display_menu())
-            
-            # Instructions Panel with Command Center Style
             console.print(Panel(
                 Align.center("[bold white]Select an ID to proceed[/bold white] [dim]• Type 'q' to exit • Just hit Enter to refresh[/dim]"),
-                title="[bold green] ⚡ COMMAND CENTER [/bold green]",
-                border_style="bright_green", 
+                title="[bold green] CMD [/bold green]",
+                border_style="green",
                 padding=(0, 1)
             ))
             
-            # Stylish Boxed Input
-            console.print("[bold bright_green]╭──╼[/bold bright_green] [bold white][Waiting for Input][/bold white]")
-            choice = Prompt.ask("[bold bright_green]╰─> Choice[/bold bright_green]").strip().lower()
-
-            if choice in ['q', 'quit', 'exit']:
-                ModernCLI.display_goodbye()
-                break
-
-            if not choice:
-                os.system('cls' if os.name == 'nt' else 'clear')
-                continue
-
             try:
+                choice = Prompt.ask("[bold green]root@ip-hunter[/bold green]:[bold blue]~[/bold blue]#").strip().lower()
+
+                if choice in ['q', 'quit', 'exit']:
+                    ModernCLI.display_goodbye()
+                    break
+
+                if not choice:
+                    console.clear()
+                    continue
+
+                # Display attack configuration page
+                attack_info = Menu.ATTACKS.get(choice, {})
+                if attack_info:
+                    console.clear()
+                    console.print(create_attack_config_panel(choice, attack_info))
+                    proceed = Confirm.ask("[bold green]Proceed with this attack configuration?[/bold green]", default=True)
+                    if not proceed:
+                        console.clear()
+                        continue
+
                 params = ModernCLI.get_attack_params(choice)
                 if params is not None:
                     ModernCLI.display_attack_start(choice, params)
-                    
-                    # Only show generic completion for tools that aren't persistent background services
-                    # (ID 7, 18 are background persistent services)
                     if str(choice) not in ["7", "18"]:
                         ModernCLI.display_attack_complete(choice)
                         console.print("[bold blue]Press Enter to return to dashboard...[/bold blue]")
                         input()
-                
-                os.system('cls' if os.name == 'nt' else 'clear')
-
+                console.clear()
             except KeyboardInterrupt:
                 console.print("\n[bold yellow]⚠️  Action interrupted by user[/bold yellow]")
                 time.sleep(1)
-                os.system('cls' if os.name == 'nt' else 'clear')
+                console.clear()
             except Exception as e:
                 ModernCLI.display_error(str(e))
                 time.sleep(2)
-                os.system('cls' if os.name == 'nt' else 'clear')
+                console.clear()
+
