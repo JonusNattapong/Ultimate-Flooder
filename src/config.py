@@ -29,6 +29,7 @@ CONFIG = {  # พจนานุกรมเก็บค่าคงที่ต
     'PROXY_CHAIN_ROTATION': True,  # หมุน proxy ใน chain แบบสุ่ม
     'FORCE_AUTO_PROTECT': True, # บังคับใช้ระบบป้องกันทั้งหมดอัตโนมัติ
     'STEALTH_MODE': True,  # โหมด stealth ที่เพิ่ม randomization และลดการตรวจจับ
+    'UI_THEME': 'matrix',  # UI theme: 'matrix' for green matrix-hacker aesthetic
     'AUTO_CLEANUP': True,  # Auto cleanup temp files และ logs
     'HISTORY_FILE': 'txt/discovery_history.json', # ไฟล์เก็บประวัติการค้นหาอุปกรณ์
     'OPENROUTER_API_KEY': os.getenv('OPEN_ROUTER'), # API Key สำหรับ OpenRouter AI Recon

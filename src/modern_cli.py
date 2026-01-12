@@ -41,6 +41,129 @@ from src.utils.system import cleanup_temp_files
 # Initialize Rich Console with optimized settings for Windows
 console = Console(force_terminal=True, color_system="auto")
 
+# Matrix Hacker theme: green ASCII header and helpers
+MATRIX_ASCII = r"""
+██╗██████╗       ██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗ 
+██║██╔══██╗      ██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
+██║██████╔╝█████╗███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
+██║██╔═══╝ ╚════╝██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
+██║██║           ██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
+╚═╝╚═╝           ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+                                                                       
+"""
+
+def matrix_header(typewriter=False, speed=0.002):
+    """Display a Matrix-style ASCII header (fast typewriter optional)"""
+    panel = Panel(Text(MATRIX_ASCII, style="green"), border_style="bright_green")
+    if not typewriter:
+        console.print(panel)
+        return
+    # Typewriter effect (fast and optional)
+    for line in MATRIX_ASCII.splitlines():
+        console.print(Text(line, style="green"))
+        time.sleep(speed)
+    console.print(Panel(Text("[bold green]IP-HUNTER — MATRIX MODE[/bold green]"), border_style="bright_green"))
+
+
+def matrix_loader(duration=2.5, fps=18):
+    """Matrix-style loading animation used on startup.
+
+    This renders a 2-column live panel: system checks (left) and a matrix stream (right),
+    with a progress bar footer. It's lightweight and uses only Rich primitives.
+    """
+    import shutil
+
+    # Ensure terminal size functions gracefully fall back
+    try:
+        term_width = shutil.get_terminal_size((80, 24)).columns
+    except Exception:
+        term_width = 80
+
+    steps = [
+        "KERNEL_CORE: SYSCALL_INIT",
+        "SESS_AUTH: AUTHENTICATING_USER",
+        "SECURE_LAYER: BYPASSING_SANDBOX",
+        "NET_TUNNEL: ESTABLISHING_NODES",
+        "MODULE_PATCH: MEM_INJECTION",
+        "INTEL_RECON: DATA_SYNC"
+    ]
+
+    start = time.time()
+    frame = 0
+    total_frames = max(1, int(duration * fps))
+
+    # Detect plain PowerShell / limited terminals and adjust animation accordingly
+    is_windows = os.name == 'nt'
+    is_windows_terminal = bool(os.environ.get('WT_SESSION') or os.environ.get('TERM_PROGRAM') == 'Windows Terminal')
+
+    # Gentle fallback for plain PowerShell (reduce FPS and stream density)
+    if is_windows and not is_windows_terminal:
+        fps = min(fps, 8)
+        duration = max(duration, 2.0)
+        stream_rows = 3
+    else:
+        stream_rows = 6
+
+    with Live(refresh_per_second=fps, transient=True) as live:
+        while True:
+            elapsed = time.time() - start
+            pct = min(100.0, (elapsed / duration) * 100.0)
+            done = int((pct / 100.0) * 40)
+            p_bar = "█" * done + "▒" * (40 - done)
+
+            # Build left column (checks)
+            completed = int((elapsed / duration) * len(steps))
+            left_text = Text()
+            for i, s in enumerate(steps):
+                if i < completed:
+                    left_text.append(f"[green]✔ {s}[/]\n")
+                else:
+                    left_text.append(f"[dim]  {s}[/]\n")
+
+            # Build matrix-like middle stream (random hex/data) smaller than terminal width
+            stream_lines = []
+            for _ in range(stream_rows):
+                # Limit per-line width to avoid overflowing terminal and causing artifacts
+                if is_windows and not is_windows_terminal:
+                    chunk_len = max(6, min(24, term_width // 12))
+                else:
+                    chunk_len = max(8, min(32, term_width // 8))
+                line = " ".join("".join(random.choice("0123456789ABCDEF") for _ in range(chunk_len)))
+                stream_lines.append(line)
+            mid_text = Text("\n".join(stream_lines), style="green")
+
+            # Compose table view
+            view = Table.grid(expand=True)
+            view.add_column(ratio=1)
+            view.add_column(ratio=2)
+            view.add_row(
+                Panel(left_text, title="[bold green]SYSTEM CHECKS[/bold green]", border_style="bright_green"),
+                Panel(mid_text, title="[bold green]MATRIX STREAM[/bold green]", border_style="bright_green")
+            )
+
+            footer = Align.center(Text.from_markup(f"[bold green]{p_bar}[/] [dim]{pct:>5.1f}%[/]  [dim]Initializing...[/dim]"))
+            container = Table.grid(expand=True)
+            container.add_row(view)
+            container.add_row(Panel(footer, border_style="green"))
+
+            live.update(Panel(container, border_style="bright_green"))
+
+            frame += 1
+            if elapsed >= duration:
+                break
+            time.sleep(1.0 / fps)
+
+    # Clear console after animation to avoid overlapping output
+    try:
+        console.clear()
+    except Exception:
+        # Best-effort clear; continue if clearing fails
+        pass
+
+    # Final success message
+    console.print(Panel(Text("[bold bright_green]ACCESS GRANTED — WELCOME[/bold bright_green]"), border_style="bright_green", padding=(1, 2)))
+
+
 class AttackMonitor:
     """Real-time attack monitoring system - Movie Style HUD"""
 
@@ -128,21 +251,21 @@ class AttackMonitor:
 
         # --- HEADER SECTION ---
         phase_idx = int(elapsed / 2) % 4
-        phase = ["[dim]INIT[/]", "[bold cyan]SYNC[/]", "[bold green]FLOW[/]", "[bold yellow]PEAK[/]"][phase_idx]
+        phase = ["[dim]INIT[/]", "[bold green]SYNC[/]", "[bold green]FLOW[/]", "[bold green]PEAK[/]"][phase_idx]
         
         # Fixed length target display to prevent shifting
         safe_target = (self.target[:30] + '..') if len(self.target) > 32 else self.target.ljust(32)
         
         header_content = Text.from_markup(
             f" [bold red]•[/][bold white] ROOT_SESSION [/][bold red]•[/]   "
-            f"[bold cyan]TARGET:[/][white] {safe_target} [/]   "
-            f"[bold cyan]PHASE:[/][bold yellow] {phase} [/]   "
+            f"[bold green]TARGET:[/][white] {safe_target} [/]   "
+            f"[bold green]PHASE:[/][bold green] {phase} [/]   "
             f"[bold white]T+ {int(elapsed):>4}s[/]"
         )
         
         header_panel = Panel(
             Align.center(header_content, vertical="middle"),
-            border_style="bright_blue",
+            border_style="bright_green",
             box=DOUBLE_EDGE,
             padding=(0,1)
         )
@@ -166,7 +289,7 @@ class AttackMonitor:
         status_color = "green" if success_rate > 90 else "white" if p_sent == 0 else "yellow" if success_rate > 50 else "red"
         net_table.add_row("🎯 INTEGRITY_INDEX", f"{success_rate:.1f}%", f"[bold {status_color}]SYNCED[/]")
 
-        self.layout["stats_top"].update(Panel(net_table, title="[ REALTIME_INTEL_STREAM ]", border_style="magenta", padding=(0,1)))
+        self.layout["stats_top"].update(Panel(net_table, title="[ REALTIME_INTEL_STREAM ]", border_style="bright_green", padding=(0,1)))
 
         # --- LEFT LOGS BOTTOM ---
         # Persistent logs instead of random ones per frame
@@ -209,7 +332,7 @@ class AttackMonitor:
         sys_table.add_row("", "")
         sys_table.add_row(f" [magenta]{pulse}[/] SIGNAL", "[magenta]ACTIVE[/]")
 
-        self.layout["right"].update(Panel(sys_table, title="[ HUB_STATUS ]", border_style="yellow", padding=(1,1)))
+        self.layout["right"].update(Panel(sys_table, title="[ HUB_STATUS ]", border_style="green", padding=(1,1)))
 
 
         # --- FOOTER: PROGRESS ---
@@ -217,9 +340,9 @@ class AttackMonitor:
         done = int((progress_percent / 100) * 50)
         p_bar = "█" * done + "▒" * (50 - done)
         footer_content = Align.center(
-            Text.from_markup(f"[bold cyan]TARGET:[/] [white]{self.target[:25]:<25}[/] [bold cyan]PROG:[/] [bold green]{p_bar}[/] [bold white]{progress_percent:>5.1f}%[/]")
+            Text.from_markup(f"[bold green]TARGET:[/] [white]{self.target[:25]:<25}[/] [bold green]PROG:[/] [bold green]{p_bar}[/] [bold white]{progress_percent:>5.1f}%[/]")
         )
-        self.layout["footer"].update(Panel(footer_content, border_style="bright_blue", box=DOUBLE_EDGE))
+        self.layout["footer"].update(Panel(footer_content, border_style="bright_green", box=DOUBLE_EDGE))
 
         return self.layout
 
@@ -249,7 +372,7 @@ class ModernCLI:
             console.print(Align.center(Text(BANNER, style="bold cyan")))
 
             
-            table = Table(title="💎 [bold magenta]Target Library (Locked Targets)[/bold magenta]", border_style="bright_blue", expand=True)
+            table = Table(title="💎 [bold green]Target Library (Locked Targets)[/bold green]", border_style="bright_green", expand=True)
             table.add_column("ID", style="cyan", justify="center", width=4)
             table.add_column("Target Address", style="white")
             table.add_column("Status", style="green", justify="center")
@@ -267,11 +390,11 @@ class ModernCLI:
                 "[bold white][D][/bold white] Delete Target  |  "
                 "[bold white][C][/bold white] Clear All  |  "
                 "[bold white][B][/bold white] Back to Menu",
-                title="[bold yellow] Target Management Options [/bold yellow]",
-                border_style="yellow"
+                title="[bold green] Target Management Options [/bold green]",
+                border_style="bright_green"
             ))
 
-            op = Prompt.ask("[bold cyan]Select Action[/bold cyan]", choices=["a", "d", "c", "b"], default="b").lower()
+            op = Prompt.ask("[bold green]Select Action[/bold green]", choices=["a", "d", "c", "b"], default="b").lower()
             
             if op == 'a':
                 new_target = Prompt.ask("[bold green]Enter Target (IP or URL)[/bold green]").strip()
@@ -307,10 +430,11 @@ class ModernCLI:
 
     @staticmethod
     def display_banner():
-        """Display the top header panel"""
+        """Display the top header panel in Matrix style"""
+        matrix_header()
         subtitle = Panel(
-            "[bold yellow]Advanced DDoS Tool v2.1.0 - Coded for Educational Purposes Only[/bold yellow]",
-            border_style="blue",
+            "[bold green]Advanced DDoS Tool v2.1.0 - Matrix Mode — Educational Purposes Only[/bold green]",
+            border_style="bright_green",
             padding=(0, 1)
         )
         console.print(subtitle)
@@ -319,11 +443,12 @@ class ModernCLI:
     @staticmethod
     def display_menu():
         """Returns the menu with a Classic Terminal / Hacker aesthetic"""
-        # Classic Header
-        classic_banner = Align.center(Text(BANNER, style="bold bright_green"))
+        # Classic Header (Matrix-themed)
+        classic_banner = Align.center(Text(BANNER, style="bold green"))
         
         # Menu Columns (3 columns for classic density)
         menu_grid = Table.grid(expand=True, padding=0)
+
         menu_grid.add_column(ratio=1)
         menu_grid.add_column(ratio=1)
         menu_grid.add_column(ratio=1)
@@ -366,8 +491,8 @@ class ModernCLI:
         
         status_line = Padding(
             Text.from_markup(
-                f"STATUS: C2:{c2_status} | TOR:{tor_status} | TARGETS:[bold yellow]{target_count}[/bold yellow] | "
-                f"SYSTEM:[bold cyan]{platform.system().upper()}[/bold cyan]"
+                f"STATUS: C2:{c2_status} | TOR:{tor_status} | TARGETS:[bold green]{target_count}[/bold green] | "
+                f"SYSTEM:[bold green]{platform.system().upper()}[/bold green]"
             ),
             (1, 0)
         )
@@ -376,13 +501,13 @@ class ModernCLI:
         layout = Table.grid(expand=True)
         layout.add_column()
         layout.add_row(classic_banner)
-        layout.add_row(Panel(menu_grid, title="[bold white] CORE COMMANDS [/bold white]", border_style="green"))
+        layout.add_row(Panel(menu_grid, title="[bold white] CORE COMMANDS [/bold white]", border_style="bright_green"))
         layout.add_row(status_line)
         
         # Mini Logs at the bottom
         if SYSTEM_LOGS:
             logs = "\n".join(SYSTEM_LOGS[-5:])
-            layout.add_row(Panel(logs, title="[bold green] SYSTEM_OUTPUT [/bold green]", border_style="dim green"))
+            layout.add_row(Panel(logs, title="[bold green] SYSTEM_OUTPUT [/bold green]", border_style="bright_green"))
 
         return layout
 
@@ -423,15 +548,15 @@ class ModernCLI:
             return None
 
         if choice == "20":  # Network Recon
-            panel = Panel("[bold cyan]Network Recon / Discovery[/bold cyan]\n[dim]Scans the local network for active devices and services.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Network Recon / Discovery[/bold green]\n[dim]Scans the local network for active devices and services.[/dim]", border_style="bright_green")
             console.print(panel)
-            subnet = Prompt.ask("[bold yellow]Enter Subnet to Scan (e.g. 192.168.1.0/24 or 10.0.0.0/16)[/bold yellow]", default="auto")
+            subnet = Prompt.ask("[bold green]Enter Subnet to Scan (e.g. 192.168.1.0/24 or 10.0.0.0/16)[/bold green]", default="auto")
             subnet = None if subnet == "auto" else subnet
-            threads = IntPrompt.ask("[bold yellow]Parallel Scan Threads[/bold yellow]", default=250)
+            threads = IntPrompt.ask("[bold green]Parallel Scan Threads[/bold green]", default=250)
             return {"threads": threads, "subnet": subnet, "target": "local", "port": 0, "duration": 0, "proxies": []}
 
         if choice == "21":  # IP Tracker
-            ip = Prompt.ask("[bold cyan]Enter IP Address to Track (Leave empty for yours)[/bold cyan]").strip()
+            ip = Prompt.ask("[bold green]Enter IP Address to Track (Leave empty for yours)[/bold green]").strip()
             return {
                 "ip": ip if ip else None, 
                 "target": ip if ip else "Current IP", 
@@ -442,74 +567,74 @@ class ModernCLI:
             }
 
         if choice == "22": # AI-Adaptive Smart Flood
-            panel = Panel("[bold cyan]AI-Adaptive Smart Flood[/bold cyan]\n[dim]Autonomous intensity adjustment based on server feedback.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]AI-Adaptive Smart Flood[/bold green]\n[dim]Autonomous intensity adjustment based on server feedback.[/dim]", border_style="bright_green")
             console.print(panel)
-            target = Prompt.ask("[bold yellow]Target URL[/bold yellow]").strip()
-            threads = IntPrompt.ask("[bold yellow]Threads[/bold yellow]", default=50)
-            duration = IntPrompt.ask("[bold yellow]Duration[/bold yellow]", default=60)
+            target = Prompt.ask("[bold green]Target URL[/bold green]").strip()
+            threads = IntPrompt.ask("[bold green]Threads[/bold green]", default=50)
+            duration = IntPrompt.ask("[bold green]Duration[/bold green]", default=60)
             return {"target": target, "threads": threads, "duration": duration, "proxies": [], "port": 80}
 
         if choice == "23": # Vulnerability Scout
-            panel = Panel("[bold cyan]Vulnerability Scout[/bold cyan]\n[dim]Rapid scan for sensitive files and misconfigurations.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Vulnerability Scout[/bold green]\n[dim]Rapid scan for sensitive files and misconfigurations.[/dim]", border_style="bright_green")
             console.print(panel)
-            target = Prompt.ask("[bold yellow]Target URL[/bold yellow]").strip()
+            target = Prompt.ask("[bold green]Target URL[/bold green]").strip()
             return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "24": # Brute-Force Suite
-            panel = Panel("[bold cyan]Brute-Force Suite[/bold cyan]\n[dim]Trial matching common credentials for services.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Brute-Force Suite[/bold green]\n[dim]Trial matching common credentials for services.[/dim]", border_style="bright_green")
             console.print(panel)
-            target = Prompt.ask("[bold yellow]Target Host/IP[/bold yellow]").strip()
-            service = Prompt.ask("[bold yellow]Service (FTP/HTTP)[/bold yellow]", default="FTP").strip()
-            username = Prompt.ask("[bold yellow]Username[/bold yellow]", default="admin").strip()
+            target = Prompt.ask("[bold green]Target Host/IP[/bold green]").strip()
+            service = Prompt.ask("[bold green]Service (FTP/HTTP)[/bold green]", default="FTP").strip()
+            username = Prompt.ask("[bold green]Username[/bold green]", default="admin").strip()
             return {"target": target, "service": service, "username": username, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "25": # Domain OSINT
-            panel = Panel("[bold cyan]Domain OSINT Multi-Hunter[/bold cyan]\n[dim]Hunt subdomains and DNS intelligence.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Domain OSINT Multi-Hunter[/bold green]\n[dim]Hunt subdomains and DNS intelligence.[/dim]", border_style="bright_green")
             console.print(panel)
-            target = Prompt.ask("[bold yellow]Domain (e.g. google.com)[/bold yellow]").strip()
+            target = Prompt.ask("[bold green]Domain (e.g. google.com)[/bold green]").strip()
             return {"target": target, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "26": # Proxy Autopilot
-            panel = Panel("[bold cyan]Proxy Autopilot[/bold cyan]\n[dim]Auto-scrapes and validates fresh HTTP/SOCKS proxies.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Proxy Autopilot[/bold green]\n[dim]Auto-scrapes and validates fresh HTTP/SOCKS proxies.[/dim]", border_style="bright_green")
             console.print(panel)
             return {"target": "localhost", "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "27": # WiFi Ghost
-            panel = Panel("[bold cyan]WiFi Ghost Recon[/bold cyan]\n[dim]Passive scanning of surrounding airwaves (Requires Admin).[/dim]", border_style="cyan")
+            panel = Panel("[bold green]WiFi Ghost Recon[/bold green]\n[dim]Passive scanning of surrounding airwaves (Requires Admin).[/dim]", border_style="bright_green")
             console.print(panel)
             return {"target": "local", "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "28": # Packet Insight
-            panel = Panel("[bold cyan]Packet Insight (Sniffer)[/bold cyan]\n[dim]Live deep packet inspection of local traffic.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Packet Insight (Sniffer)[/bold green]\n[dim]Live deep packet inspection of local traffic.[/dim]", border_style="bright_green")
             console.print(panel)
-            duration = IntPrompt.ask("[bold yellow]Sniff Duration (seconds)[/bold yellow]", default=10)
+            duration = IntPrompt.ask("[bold green]Sniff Duration (seconds)[/bold green]", default=10)
             return {"target": "sniffer", "duration": duration, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "29": # Payload Lab
-            panel = Panel("[bold cyan]Payload Lab[/bold cyan]\n[dim]Generate obfuscated payloads for authorized testing.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Payload Lab[/bold green]\n[dim]Generate obfuscated payloads for authorized testing.[/dim]", border_style="bright_green")
             console.print(panel)
             return {"target": "payload", "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "30": # Identity Cloak
-            panel = Panel("[bold cyan]Identity Cloak (OpSec)[/bold cyan]\n[dim]Randomizes MAC address and machine hostname.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]Identity Cloak (OpSec)[/bold green]\n[dim]Randomizes MAC address and machine hostname.[/dim]", border_style="bright_green")
             console.print(panel)
             return {"target": "privacy", "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "31": # CVE Explorer
-            panel = Panel("[bold cyan]CVE Explorer[/bold cyan]\n[dim]Search public vulnerability databases (NVD/CIRCL) by keyword.[/dim]", border_style="cyan")
+            panel = Panel("[bold green]CVE Explorer[/bold green]\n[dim]Search public vulnerability databases (NVD/CIRCL) by keyword.[/dim]", border_style="bright_green")
             console.print(panel)
-            keyword = Prompt.ask("[bold yellow]Search Keyword (e.g. windows, apache, cisco)[/bold yellow]").strip()
+            keyword = Prompt.ask("[bold green]Search Keyword (e.g. windows, apache, cisco)[/bold green]").strip()
             return {"target": "CVE-Database", "keyword": keyword, "duration": 0, "threads": 1, "port": 0, "proxies": []}
 
         if choice == "32": # Web Exposure Sniper
-            panel = Panel("[bold red]Web Exposure Sniper[/bold red]\n[dim]Active hunting for data leaks, sensitive files, and misconfigurations on a target website.[/dim]", border_style="red")
+            panel = Panel("[bold green]Web Exposure Sniper[/bold green]\n[dim]Active hunting for data leaks, sensitive files, and misconfigurations on a target website.[/dim]", border_style="bright_green")
             console.print(panel)
             
             # AI Key Management
             api_key = CONFIG.get('OPENROUTER_API_KEY')
             if not api_key:
                 console.print("[yellow]⚠️  OpenRouter API Key not found.[/yellow]")
-                api_key = Prompt.ask("[bold cyan]Enter OpenRouter API Key (to enable AI recon)[/bold cyan]").strip()
+                api_key = Prompt.ask("[bold green]Enter OpenRouter API Key (to enable AI recon)[/bold green]").strip()
                 if api_key:
                     CONFIG['OPENROUTER_API_KEY'] = api_key
                     save = Prompt.ask("[yellow]Save this key permanently to config.py?[/yellow]", choices=["y", "n"], default="y")
@@ -526,7 +651,7 @@ class ModernCLI:
 
         if choice == "7":  # C2 Server
             panel = Panel(
-                "[bold cyan]Botnet C2 Server Configuration[/bold cyan]",
+                "[bold green]Botnet C2 Server Configuration[/bold green]",
                 border_style="cyan",
                 padding=(1, 2)
             )
@@ -631,7 +756,7 @@ class ModernCLI:
             description = "Special attack configuration."
 
         panel = Panel(
-            f"[bold cyan]{attack_info['name']}[/bold cyan]\n"
+            f"[bold green]{attack_info['name']}[/bold green]\n"
             f"[dim]{description}[/dim]",
             border_style="cyan",
             padding=(1, 2)
@@ -641,12 +766,12 @@ class ModernCLI:
         # Target input
         if ModernCLI.locked_targets:
             console.print(Panel(
-                f"[bold cyan]🎯 Target Locked Selection[/bold cyan]\n"
+                f"[bold green]🎯 Target Locked Selection[/bold green]\n"
                 f"You have [bold yellow]{len(ModernCLI.locked_targets)}[/bold yellow] targets in your library.",
                 border_style="cyan"
             ))
             for i, t in enumerate(ModernCLI.locked_targets, 1):
-                console.print(f"  [bold cyan][{i}][/bold cyan] {t}")
+                console.print(f"  [bold green][{i}][/bold green] {t}")
             
             t_choice = Prompt.ask("[bold yellow]Select ID or enter NEW target address[/bold yellow]").strip()
             
@@ -851,7 +976,7 @@ class ModernCLI:
         # Advanced Attack Deployment UI
         os.system('cls' if os.name == 'nt' else 'clear')
         # Title Header with Cyberpunk brackets
-        header_text = Text.from_markup(f"[bold cyan]≺[/] [bold bright_white]MISSION_PROTOCOL:[/][bold red] {attack_info['name'].upper()} [/][bold cyan]≻[/]")
+        header_text = Text.from_markup(f"[bold green]≺[/] [bold bright_white]MISSION_PROTOCOL:[/][bold green] {attack_info['name'].upper()} [/][bold green]≻[/]")
         console.print(Align.center(header_text))
         console.print(Align.center(Text("-" * 80, style="dim white")))
 
@@ -886,7 +1011,7 @@ class ModernCLI:
         opsec.add_row("[bold green]SLTH_MODE[/]", get_status(params.get("stealth_mode")))
         opsec.add_row("[bold green]VPN_CRYPT[/]", get_status(params.get("use_vpn")))
         if params.get("proxies"):
-            opsec.add_row("[bold green]PRX_POOL [/]", f"[bold cyan]{len(params['proxies'])} NODES[/]")
+            opsec.add_row("[bold green]PRX_POOL [/]", f"[bold green]{len(params['proxies'])} NODES[/]")
 
         briefing_table.add_row(
             Panel(intel, title="[bold cyan]📡 TARGET_INTEL[/]", border_style="cyan", box=HEAVY_EDGE),
@@ -1002,7 +1127,20 @@ class ModernCLI:
 
     @staticmethod
     def display_goodbye():
-        """Display goodbye message"""
+        """Display goodbye message (Matrix themed if enabled)"""
+        if CONFIG.get('UI_THEME') == 'matrix':
+            # Small Matrix exit effect
+            console.print(Panel(Text("[bold green]Shutting down...[/bold green]"), border_style="bright_green"))
+            time.sleep(0.15)
+            matrix_header(typewriter=False)
+            console.print(Panel(
+                "[bold green]👋 Thank you for using IP-HUNTER (Matrix Mode)![/bold green]\n"
+                "[dim green]Remember: This tool is for educational purposes only[/dim green]",
+                border_style="bright_green",
+                padding=(1, 2)
+            ))
+            return
+
         panel = Panel(
             "[bold cyan]👋 Thank you for using IP-HUNTER![/bold cyan]\n"
             "[dim]Remember: This tool is for educational purposes only[/dim]",
@@ -1017,23 +1155,35 @@ class ModernCLI:
         threading.Thread(target=send_telemetry, args=({},), daemon=True).start()
         console.clear()
         
-        # ASCII Animation (Cyberpunk Style)
-        lines = BANNER.split('\n')
-        with Live(Align.center(""), refresh_per_second=20, transient=True) as live:
-            for i in range(len(lines)):
-                current = "\n".join(lines[:i+1])
-                live.update(Align.center(Text(current, style="bold cyan")))
-                time.sleep(0.02)
+        # Startup animation - Matrix style if enabled
+        if CONFIG.get('UI_THEME') == 'matrix':
+            # Typewriter-style matrix header
+            matrix_header(typewriter=True, speed=0.003)
+            # Matrix loader with checks and animated stream
+            matrix_loader(duration=2.8, fps=18)
+            # Clear before rendering banner to prevent overlap
+            console.clear()
+            # Briefly show the full banner in green
+            console.print(Align.center(Text(BANNER, style="bold green")))
+            console.print("\n")
+        else:
+            # ASCII Animation (Cyberpunk Style)
+            lines = BANNER.split('\n')
+            with Live(Align.center(""), refresh_per_second=20, transient=True) as live:
+                for i in range(len(lines)):
+                    current = "\n".join(lines[:i+1])
+                    live.update(Align.center(Text(current, style="bold cyan")))
+                    time.sleep(0.02)
+                
+                # Flickering "Glitch" Effect
+                for _ in range(2):
+                    live.update(Align.center(Text(BANNER, style="bold white")))
+                    time.sleep(0.04)
+                    live.update(Align.center(Text(BANNER, style="bold cyan")))
+                    time.sleep(0.04)
             
-            # Flickering "Glitch" Effect
-            for _ in range(2):
-                live.update(Align.center(Text(BANNER, style="bold white")))
-                time.sleep(0.04)
-                live.update(Align.center(Text(BANNER, style="bold cyan")))
-                time.sleep(0.04)
-        
-        console.print(Align.center(Text(BANNER, style="bold cyan")))
-        console.print("\n")
+            console.print(Align.center(Text(BANNER, style="bold cyan")))
+            console.print("\n")
         
         boot_steps = [
             "KERNEL_CORE: SYSCALL_INIT",
@@ -1089,7 +1239,7 @@ class ModernCLI:
             ))
             
             try:
-                choice = Prompt.ask("[bold green]root@ip-hunter[/bold green]:[bold blue]~[/bold blue]#").strip().lower()
+                choice = Prompt.ask("[bold green]root@ip-hunter[/bold green]:[bold green]~[/bold green]#").strip().lower()
 
                 if choice in ['q', 'quit', 'exit']:
                     ModernCLI.display_goodbye()

@@ -38,7 +38,7 @@ class CyberSpinnerColumn(ProgressColumn):
 
     def render(self, task=None):
         idx = int(time.time() * 8) % len(self.frames)
-        colors = ["green", "cyan", "magenta", "yellow", "bright_blue"]
+        colors = ["green", "bright_green", "green"]
         color = colors[self.style_id % len(colors)]
         return Text(self.frames[idx], style=f"bold {color}")
 
@@ -60,15 +60,15 @@ def create_cyber_progress(description="[cyan]Processing...[/]", total=None, tran
     """Creates a pre-configured Progress instance with Cyber Spinner and Glow Bar"""
     return Progress(
         CyberSpinnerColumn(),
-        TextColumn("[bold cyan]⫸[/] [progress.description]{task.description}"),
+        TextColumn("[bold green]⫸[/] [progress.description]{task.description}"),
         GlowBarColumn(
             bar_width=40,
             complete_style="bold green",
             finished_style="bold bright_green",
-            pulse_style="bold white"
+            pulse_style="bold green"
         ),
-        TaskProgressColumn(text_format="[bold white]{task.percentage:>3.0f}%[/]"),
-        TextColumn(" [bold magenta]📡[/]"),
+        TaskProgressColumn(text_format="[bold green]{task.percentage:>3.0f}%[/]"),
+        TextColumn(" [bold green]📡[/]"),
         console=console,
         transient=transient,
         refresh_per_second=15
@@ -94,10 +94,10 @@ def create_attack_config_panel(choice, attack_info):
     # Header with attack details
     header_panel = Panel(
         Align.center(f"[bold bright_green]{name}[/bold bright_green]\n"
-                    f"[dim cyan]{category} Attack[/dim cyan]\n"
-                    f"[yellow]ID: {choice}[/yellow] | [red]Root Required: {'Yes' if needs_root else 'No'}[/red]"),
+                    f"[dim green]{category} Attack[/dim green]\n"
+                    f"[green]ID: {choice}[/green] | [green]Root Required: {'Yes' if needs_root else 'No'}[/green]"),
         title="[bold white] ATTACK CONFIGURATION [/bold white]",
-        border_style="green",
+        border_style="bright_green",
         padding=(1, 2)
     )
     layout["header"].update(header_panel)
@@ -112,7 +112,7 @@ def create_attack_config_panel(choice, attack_info):
     # Left side: Basic parameters
     basic_params = Table.grid(expand=True)
     basic_params.add_column()
-    basic_params.add_row("[bold cyan]Basic Parameters:[/bold cyan]")
+    basic_params.add_row("[bold green]Basic Parameters:[/bold green]")
     basic_params.add_row("")
 
     # Add common parameters based on attack type
@@ -146,13 +146,13 @@ def create_attack_config_panel(choice, attack_info):
         basic_params.add_row("• Target")
         basic_params.add_row("• Custom Parameters")
 
-    left_panel = Panel(basic_params, title="[bold blue] PARAMETERS [/bold blue]", border_style="blue")
+    left_panel = Panel(basic_params, title="[bold green] PARAMETERS [/bold green]", border_style="bright_green")
     body_layout["left"].update(left_panel)
 
     # Right side: Advanced options
     advanced_options = Table.grid(expand=True)
     advanced_options.add_column()
-    advanced_options.add_row("[bold magenta]Advanced Options:[/bold magenta]")
+    advanced_options.add_row("[bold green]Advanced Options:[/bold green]")
     advanced_options.add_row("")
     advanced_options.add_row("• TOR Integration")
     advanced_options.add_row("• VPN Auto-Connect")
@@ -162,15 +162,15 @@ def create_attack_config_panel(choice, attack_info):
     advanced_options.add_row("• Rate Limiting Bypass")
     advanced_options.add_row("• Anti-Detection Measures")
 
-    right_panel = Panel(advanced_options, title="[bold magenta] ADVANCED [/bold magenta]", border_style="magenta")
+    right_panel = Panel(advanced_options, title="[bold green] ADVANCED [/bold green]", border_style="bright_green")
     body_layout["right"].update(right_panel)
 
     layout["body"].update(body_layout)
 
     # Footer with navigation
     footer_panel = Panel(
-        Align.center("[bold white]Use ↑↓ arrows to navigate • Enter to select • ESC to go back[/bold white]"),
-        border_style="dim white",
+        Align.center("[bold green]Use ↑↓ arrows to navigate • Enter to select • ESC to go back[/bold green]"),
+        border_style="dim green",
         padding=(0, 1)
     )
     layout["footer"].update(footer_panel)
@@ -190,10 +190,10 @@ def create_monitoring_dashboard(attack_name, target, duration, stats):
     # Header
     header = Panel(
         Align.center(f"[bold bright_green]{attack_name}[/bold bright_green]\n"
-                    f"[dim cyan]Target: {target}[/dim cyan]\n"
-                    f"[yellow]Duration: {duration}s[/yellow]"),
+                    f"[dim green]Target: {target}[/dim green]\n"
+                    f"[green]Duration: {duration}s[/green]"),
         title="[bold white] LIVE MONITORING [/bold white]",
-        border_style="green"
+        border_style="bright_green"
     )
     layout["header"].update(header)
 
@@ -205,16 +205,16 @@ def create_monitoring_dashboard(attack_name, target, duration, stats):
 
     stats_table.add_row(
         f"[bold green]Packets Sent:[/bold green]\n{stats.get('packets_sent', 0)}",
-        f"[bold blue]Bytes Sent:[/bold blue]\n{stats.get('bytes_sent', 0)}",
-        f"[bold yellow]Active Connections:[/bold yellow]\n{stats.get('active_connections', 0)}"
+        f"[bold green]Bytes Sent:[/bold green]\n{stats.get('bytes_sent', 0)}",
+        f"[bold green]Active Connections:[/bold green]\n{stats.get('active_connections', 0)}"
     )
     stats_table.add_row(
-        f"[bold red]Failed Packets:[/bold red]\n{stats.get('packets_failed', 0)}",
-        f"[bold cyan]Success Rate:[/bold cyan]\n{stats.get('success_rate', 0)}%",
-        f"[bold magenta]Speed:[/bold magenta]\n{stats.get('speed', 0)} pps"
+        f"[bold green]Failed Packets:[/bold green]\n{stats.get('packets_failed', 0)}",
+        f"[bold green]Success Rate:[/bold green]\n{stats.get('success_rate', 0)}%",
+        f"[bold green]Speed:[/bold green]\n{stats.get('speed', 0)} pps"
     )
 
-    stats_panel = Panel(stats_table, title="[bold cyan] REAL-TIME STATS [/bold cyan]", border_style="cyan")
+    stats_panel = Panel(stats_table, title="[bold green] REAL-TIME STATS [/bold green]", border_style="bright_green")
     layout["stats"].update(stats_panel)
 
     # Logs section
@@ -224,8 +224,8 @@ def create_monitoring_dashboard(attack_name, target, duration, stats):
 
     # Footer
     footer = Panel(
-        Align.center("[bold white]Press 'q' to stop • 'p' to pause • 'r' to resume[/bold white]"),
-        border_style="dim white"
+        Align.center("[bold green]Press 'q' to stop • 'p' to pause • 'r' to resume[/bold green]"),
+        border_style="dim green"
     )
     layout["footer"].update(footer)
 

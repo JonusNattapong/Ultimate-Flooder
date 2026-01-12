@@ -27,8 +27,8 @@ def target_mgmt():
     """ID 0: Target Library Management"""
     while True:
         targets = load_targets()
-        table = Table(title="[bold cyan]Target Library[/]", expand=True)
-        table.add_column("ID", style="yellow")
+        table = Table(title="[bold green]Target Library[/]", expand=True)
+        table.add_column("ID", style="green")
         table.add_column("Target", style="white")
         table.add_column("Port", style="cyan")
         table.add_column("Notes", style="dim")
@@ -37,8 +37,8 @@ def target_mgmt():
             table.add_row(str(idx), t.get('target'), str(t.get('port')), t.get('notes', '-'))
 
         console.clear()
-        console.print(Panel(table, border_style="cyan"))
-        console.print("[cyan](a)[/] Add Target  [cyan](d)[/] Delete Target  [cyan](q)[/] Quit")
+        console.print(Panel(table, border_style="bright_green"))
+        console.print("[green](a)[/] Add Target  [green](d)[/] Delete Target  [green](q)[/] Quit")
         
         choice = input("\nAction: ").lower()
         if choice == 'q':
