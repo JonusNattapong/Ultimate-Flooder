@@ -18,11 +18,11 @@ console = Console()
 
 # Global security limits  # ค่าจำกัดความปลอดภัยทั่วโลก
 SECURITY_LIMITS = {
-    'max_threads': 1000,  # จำนวนเธรดสูงสุดที่อนุญาต
-    'max_sockets': 500,  # จำนวน socket สูงสุดที่อนุญาต
-    'max_memory_percent': 80.0,  # เปอร์เซ็นต์หน่วยความจำสูงสุดที่อนุญาต
-    'max_cpu_percent': 90.0,  # เปอร์เซ็นต์ CPU สูงสุดที่อนุญาต
-    'check_interval': 5.0  # ช่วงเวลาตรวจสอบทรัพยากร (วินาที)
+    'max_threads': 5000,  # จำนวนเธรดสูงสุดที่อนุญาต
+    'max_sockets': 2000,  # จำนวน socket สูงสุดที่อนุญาต
+    'max_memory_percent': 95.0,  # เพิ่มเป็น 95% เพื่อรองรับการทดสอบบน Server
+    'max_cpu_percent': 98.0,  # เพิ่มเป็น 98%
+    'check_interval': 10.0  # ตรวจสอบทุก 10 วินาทีเพื่อลด overhead
 }
 
 # Global controls

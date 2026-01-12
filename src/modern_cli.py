@@ -56,20 +56,21 @@ class AttackMonitor:
         self.active_connections = 0
         self.monitoring = False
         self.monitor_thread = None
+        self._lock = threading.Lock()
         
-        # Initialize Layout for Cyberpunk HUD (Movie Style)
+        # Initialize Layout for Cyberpunk HUD - Compact & High-Tech
         self.layout = Layout()
         self.layout.split_column(
-            Layout(name="header", size=4),
-            Layout(name="body", ratio=1),
+            Layout(name="header", size=3),
+            Layout(name="body", size=18), # Locked size to prevent jumping/flickering
             Layout(name="footer", size=3)
         )
         self.layout["body"].split_row(
-            Layout(name="left", ratio=2),
+            Layout(name="left", ratio=3),
             Layout(name="right", ratio=1)
         )
         self.layout["left"].split_column(
-            Layout(name="stats_top", ratio=1),
+            Layout(name="stats_top", size=10),
             Layout(name="logs_bottom", ratio=1)
         )
 
@@ -86,11 +87,13 @@ class AttackMonitor:
             self.monitor_thread.join(timeout=1)
 
     def update_stats(self, packets=0, bytes_sent=0, connections=0, failed=0):
-        """Update attack statistics"""
-        self.packets_sent += packets
-        self.bytes_sent += bytes_sent
-        self.active_connections = connections
-        self.packets_failed += failed
+        """Update attack statistics (Thread-Safe)"""
+        with self._lock:
+            self.packets_sent += packets
+            self.bytes_sent += bytes_sent
+            if connections > 0:
+                self.active_connections = connections
+            self.packets_failed += failed
 
     def _monitor_loop(self):
         """Main monitoring loop"""
@@ -98,11 +101,16 @@ class AttackMonitor:
             time.sleep(1)
 
     def get_stats_panel(self):
-        """Generate a Cinema-style Matrix/Hacker HUD - Optimized for stability & high-speed display"""
-        elapsed = time.time() - self.start_time
+        """Generate a Cinema-style Matrix/Hacker HUD - Optimized for absolute stability & zero flicker"""
+        with self._lock:
+            elapsed = time.time() - self.start_time
+            p_sent = self.packets_sent
+            p_failed = self.packets_failed
+            b_sent = self.bytes_sent
+            a_conns = self.active_connections
         
-        # High-performance counter for visual "flicker" effects
-        v_frame = int(time.time() * 15)
+        # Consistent frame counter
+        v_frame = int(time.time() * 2)
         
         if self.max_requests > 0:
             progress_percent = min(100, (self.packets_sent / self.max_requests) * 100)
@@ -119,49 +127,46 @@ class AttackMonitor:
             self._last_sys_check = time.time()
 
         # --- HEADER SECTION ---
-        header_table = Table.grid(expand=True)
-        header_table.add_column(justify="left", ratio=1)
-        header_table.add_column(justify="center", ratio=3)
-        header_table.add_column(justify="right", ratio=1)
+        phase_idx = int(elapsed / 2) % 4
+        phase = ["[dim]INIT[/]", "[bold cyan]SYNC[/]", "[bold green]FLOW[/]", "[bold yellow]PEAK[/]"][phase_idx]
         
-        # Dynamic tag that feels alive
-        tag = f"<{self.attack_name.upper()}>"
-        phase = ["[dim]LOAD[/]", "[bold cyan]SYNC[/]", "[bold green]BUSY[/]", "[bold yellow]PEAK[/]"][v_frame % 4]
+        # Fixed length target display to prevent shifting
+        safe_target = (self.target[:30] + '..') if len(self.target) > 32 else self.target.ljust(32)
         
-        header_table.add_row(
-            Text(f"ROOT_USER", style="bold red"),
-            Text(f"TARGET_NODE: [white]{self.target}[/] | STATE: {phase}", style="bold cyan"),
-            Text(time.strftime("%H:%M:%S"), style="bold white")
+        header_content = Text.from_markup(
+            f" [bold red]•[/][bold white] ROOT_SESSION [/][bold red]•[/]   "
+            f"[bold cyan]TARGET:[/][white] {safe_target} [/]   "
+            f"[bold cyan]PHASE:[/][bold yellow] {phase} [/]   "
+            f"[bold white]T+ {int(elapsed):>4}s[/]"
         )
-
         
         header_panel = Panel(
-            header_table,
-            title="[ SYSTEM_KERNEL_ACCESS ]",
+            Align.center(header_content, vertical="middle"),
             border_style="bright_blue",
-            box=DOUBLE_EDGE
+            box=DOUBLE_EDGE,
+            padding=(0,1)
         )
         self.layout["header"].update(header_panel)
 
         # --- LEFT STATS TOP ---
-        pps = self.packets_sent / max(1, elapsed)
-        bps = self.bytes_sent / max(1, elapsed) / 1024 / 1024 # MB/s
-        total_p = self.packets_sent + self.packets_failed
-        success_rate = (self.packets_sent / max(1, total_p)) * 100
+        pps = p_sent / max(1, elapsed)
+        bps = b_sent / max(1, elapsed) / 1024 / 1024 # MB/s
+        total_p = p_sent + p_failed
+        success_rate = (p_sent / max(1, total_p)) * 100
         
-        net_table = Table(show_header=True, header_style="bold magenta", box=HEAVY_EDGE, expand=True)
-        net_table.add_column("VECTOR_METRIC", style="cyan")
-        net_table.add_column("LIVE_FEED", style="white")
-        net_table.add_column("STATUS", justify="right")
+        net_table = Table(show_header=True, header_style="bold magenta", box=HEAVY_EDGE, expand=True, show_edge=True)
+        net_table.add_column("VECTOR_METRIC", style="bold cyan", ratio=1)
+        net_table.add_column("LIVE_FEED", style="bold white", ratio=1, justify="center")
+        net_table.add_column("STATUS", justify="right", ratio=1)
         
-        net_table.add_row("PACKET_VELOCITY", f"{pps:,.0f} PPS", "[bold green]SYNCED[/]")
-        net_table.add_row("BITSTREAM_FLOW", f"{bps:.2f} MB/s", "[bold white]ACTIVE[/]")
-        net_table.add_row("TOTAL_PAYLOAD", f"{self.packets_sent:,}", "[bold magenta]INJECTING[/]")
+        net_table.add_row("⚡ PACKET_VELOCITY", f"{pps:,.0f} PPS", "[bold green]ONLINE[/]")
+        net_table.add_row("🌊 BITSTREAM_FLOW", f"{bps:.2f} MB/s", "[bold white]ACTIVE[/]")
+        net_table.add_row("📦 TOTAL_PAYLOAD", f"{p_sent:,}", "[bold magenta]INJECTING[/]")
         
-        status_color = "green" if success_rate > 90 else "white" if self.packets_sent == 0 else "yellow" if success_rate > 50 else "red"
-        net_table.add_row("INTEGRITY_INDEX", f"{success_rate:.1f}%", f"[bold {status_color}]ANALYZING[/]")
+        status_color = "green" if success_rate > 90 else "white" if p_sent == 0 else "yellow" if success_rate > 50 else "red"
+        net_table.add_row("🎯 INTEGRITY_INDEX", f"{success_rate:.1f}%", f"[bold {status_color}]SYNCED[/]")
 
-        self.layout["stats_top"].update(Panel(net_table, title="[ REALTIME_INTEL_STREAM ]", border_style="magenta"))
+        self.layout["stats_top"].update(Panel(net_table, title="[ REALTIME_INTEL_STREAM ]", border_style="magenta", padding=(0,1)))
 
         # --- LEFT LOGS BOTTOM ---
         # Persistent logs instead of random ones per frame
@@ -180,38 +185,39 @@ class AttackMonitor:
         self.layout["logs_bottom"].update(Panel(log_content, title="[ KERNEL_LOG_PIPE ]", border_style="green"))
 
         # --- RIGHT SIDE: SYSTEM INFO ---
-        sys_info = Text()
-        sys_info.append("\n  [CORE_ANALYSIS]\n", style="bold yellow")
-        sys_info.append(f"  CPU_X: {self._cpu}%\n", style="white")
-        sys_info.append(f"  MEM_X: {self._mem}%\n", style="white")
-        sys_info.append(f"  THRDs: {security.active_threads}\n", style="white")
-        sys_info.append(f"  SOCKs: {security.active_sockets}\n", style="white")
+        sys_table = Table.grid(padding=0)
+        sys_table.add_column(style="bold yellow")
+        sys_table.add_column(style="white", justify="right")
         
-        sys_info.append("\n  [ENCRYPTION]\n", style="bold red")
-        # Visual "key" that shifts slightly for cyber feel without being random
+        sys_table.add_row(" CPU_USE", f"{self._cpu}%")
+        sys_table.add_row(" MEM_USE", f"{self._mem}%")
+        sys_table.add_row(" THREADS", f"{security.active_threads:>4}")
+        sys_table.add_row(" SOCKETS", f"{security.active_sockets:>4}")
+        sys_table.add_row("", "")
+        
         seed = int(time.time() / 5) * 12345
-        sys_info.append(f"  KEY: {abs(hash(seed)) % 0xFFFFFFFF:X}\n", style="dim white")
-        sys_info.append(f"  CYPHER: AES-256-GCM\n", style="dim white")
+        sys_table.add_row("[red] CRYPTO[/]", f"[dim]{abs(hash(seed)) % 0xFFFFFFFF:X}[/]")
+        sys_table.add_row("[red] CYPHER[/]", "[dim]AES-GCM[/]")
         
-        status_msg = "OPTIMAL" if success_rate > 5 or self.packets_sent == 0 else "DEGRADED"
-        status_color = "bold green" if status_msg == "OPTIMAL" else "bold red"
-        sys_info.append(f"\n  STATE: ", style="white")
-        sys_info.append(status_msg, style=status_color)
+        status_msg = "OPTIMAL" if success_rate > 5 or self.packets_sent == 0 else "WARN"
+        status_color = "green" if status_msg == "OPTIMAL" else "red"
+        sys_table.add_row("", "")
+        sys_table.add_row(" STATUS", f"[bold {status_color}]{status_msg}[/]")
         
-        # Add a flickering "scanning" indicator
-        if v_frame % 2 == 0:
-            sys_info.append("\n\n  [⚡] INJECTING...", style="bold magenta")
-        else:
-            sys_info.append("\n\n  [ ] INJECTING...", style="dim magenta")
+        # Pulse indicator
+        pulse = "⚡" if (v_frame // 2) % 2 == 0 else " "
+        sys_table.add_row("", "")
+        sys_table.add_row(f" [magenta]{pulse}[/] SIGNAL", "[magenta]ACTIVE[/]")
 
-        self.layout["right"].update(Panel(sys_info, title="[ HUB_STATUS ]", border_style="yellow"))
+        self.layout["right"].update(Panel(sys_table, title="[ HUB_STATUS ]", border_style="yellow", padding=(1,1)))
 
 
         # --- FOOTER: PROGRESS ---
-        done = int(progress_percent / 100 * 60)
-        p_bar = "█" * done + "▒" * (60 - done)
+        # Locked width bar
+        done = int((progress_percent / 100) * 50)
+        p_bar = "█" * done + "▒" * (50 - done)
         footer_content = Align.center(
-            Text.from_markup(f"[bold cyan]TARGET: [white]{self.target}[/] | PROGRESS:[/][bold green] {p_bar} [/][bold white]{progress_percent:.1f}%[/]")
+            Text.from_markup(f"[bold cyan]TARGET:[/] [white]{self.target[:25]:<25}[/] [bold cyan]PROG:[/] [bold green]{p_bar}[/] [bold white]{progress_percent:>5.1f}%[/]")
         )
         self.layout["footer"].update(Panel(footer_content, border_style="bright_blue", box=DOUBLE_EDGE))
 
@@ -939,18 +945,28 @@ class ModernCLI:
         attack_thread.start()
 
         try:
-            # Live monitoring loop - Optimized for smoothness (10 FPS)
-            with Live(current_monitor.layout, refresh_per_second=10, transient=True) as live:
+            # Live monitoring loop - Locked to 4 FPS with manual refresh control for zero flicker
+            # transient=False is ESSENTIAL for Windows Console stability to prevent "blanking"
+            with Live(current_monitor.layout, auto_refresh=False, transient=False) as live:
                 start_time = time.time()
                 while time.time() - start_time < params["duration"]:
-                    if params.get("max_requests", 0) > 0 and current_monitor.packets_sent >= params["max_requests"]:
+                    # Global stop check
+                    if stop_event.is_set():
                         break
+                        
+                    with current_monitor._lock:
+                        sent = current_monitor.packets_sent
                     
-                    # Trigger layout update data
+                    if params.get("max_requests", 0) > 0 and sent >= params["max_requests"]:
+                        break
+
+                    # Update statistics data
                     current_monitor.get_stats_panel()
+                    # Perform single draw call
+                    live.refresh()
                     
-                    # Smaller sleep for better responsiveness to Ctrl+C
-                    time.sleep(0.1)
+                    # Consistent 250ms interval (4 FPS)
+                    time.sleep(0.25)
         except KeyboardInterrupt:
 
             console.print("\n[bold yellow]⚠️  Attack interrupted by user[/bold yellow]")

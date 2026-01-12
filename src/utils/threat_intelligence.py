@@ -51,6 +51,16 @@ class ThreatIntelligence:
         # 5. Generate AI Recommendations
         intel_data["recommendations"] = self._generate_recommendations(intel_data)
 
+        # 6. Generate AI Attack Strategies (if model available)
+        try:
+            from src.utils.ai import OffensiveAI
+            ai_assistant = OffensiveAI()
+            target_summary = self._summarize_target(intel_data)
+            attack_strategies = ai_assistant.generate_attack_strategy(target_summary)
+            intel_data["ai_attack_strategies"] = attack_strategies
+        except Exception as e:
+            intel_data["ai_attack_strategies"] = f"AI unavailable: {str(e)}"
+
         # 6. Store Intelligence
         self.threat_db[intel_id] = intel_data
 
@@ -194,6 +204,43 @@ class ThreatIntelligence:
 
         return recommendations[:5]
 
+    def _summarize_target(self, intel_data):
+        """Create a concise summary of target for AI analysis"""
+        target = intel_data.get('target', 'Unknown')
+        threat_level = intel_data.get('threat_level', 'Unknown')
+        risk_score = intel_data.get('risk_score', 0)
+
+        summary_parts = [f"Target: {target}, Threat Level: {threat_level}, Risk Score: {risk_score}"]
+
+        sources = intel_data.get('sources', {})
+
+        # Add OSINT info
+        if 'osint' in sources:
+            osint = sources['osint']
+            if 'country' in osint:
+                summary_parts.append(f"Location: {osint.get('country', 'Unknown')}")
+            if 'isp' in osint:
+                summary_parts.append(f"ISP: {osint['isp']}")
+
+        # Add scanning info
+        if 'scanning' in sources:
+            scanning = sources['scanning']
+            if 'open_ports' in scanning:
+                ports = scanning['open_ports'][:5]  # Limit to first 5 ports
+                summary_parts.append(f"Open ports: {', '.join(map(str, ports))}")
+            if 'services' in scanning:
+                services = scanning['services'][:3]  # Limit to first 3 services
+                summary_parts.append(f"Services: {', '.join(services)}")
+
+        # Add vulnerability info
+        if 'vulnerabilities' in sources:
+            vulns = sources['vulnerabilities']
+            if 'vulnerabilities' in vulns:
+                vuln_types = [v[0] for v in vulns['vulnerabilities'][:3]]  # First 3 vuln types
+                summary_parts.append(f"Vulnerabilities: {', '.join(vuln_types)}")
+
+        return ". ".join(summary_parts)
+
     def correlate_threats(self, target):
         """Find correlations between different intelligence sources"""
         correlations = []
@@ -232,6 +279,13 @@ class ThreatIntelligence:
         # Add recommendations
         if intel['recommendations']:
             table.add_row("AI Recommendations", "\n".join(f"• {rec}" for rec in intel['recommendations'][:3]))
+
+        # Add AI attack strategies
+        if 'ai_attack_strategies' in intel and intel['ai_attack_strategies']:
+            strategies = intel['ai_attack_strategies']
+            if len(strategies) > 200:
+                strategies = strategies[:200] + "..."
+            table.add_row("AI Attack Strategies", strategies)
 
         # Add correlations
         correlations = self.correlate_threats(intel['target'])

