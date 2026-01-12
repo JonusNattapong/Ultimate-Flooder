@@ -6,9 +6,9 @@ from src.core.menu import Menu
 from src.config import CONFIG
 from src.utils.logging import add_system_log
 
-# Target for testing
-TARGET_URL = "http://203.154.83.24/"
-TARGET_IP = "203.154.83.24"
+# Target for testing (using local sandbox)
+TARGET_URL = "http://127.0.0.1:8082/"
+TARGET_IP = "127.0.0.1"
 DURATION = 5  # Slightly longer for better verification
 THREADS = 10
 

