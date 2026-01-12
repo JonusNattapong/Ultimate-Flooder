@@ -1,7 +1,9 @@
-# IP-HUNTER v2.5.0 | Advanced DDoS Toolkit & Security Suite
+# IP-HUNTER v2.1.0-ai | Advanced DDoS Toolkit & AI-Powered Security Suite
 
 **© 2026 Nattapong Tapachoom. สิทธิในทรัพย์สินทางปัญญาและลิขสิทธิ์ทั้งหมดเป็นของ ณัฐพงศ์ ตะปะชุม**
 **[PROPRIETARY SOFTWARE - RESTRICTED DISTRIBUTION]**
+
+**🚀 AI Integration Release: Offensive Red Team Training & Strategy Generation**
 
 ---
 
@@ -26,6 +28,11 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 
 ## ✨ Key Features
 
+- **🤖 AI-Powered Offensive Intelligence**: Integrated AI assistant using fine-tuned models on red team datasets for attack strategy generation.
+- **🧠 Smart Threat Intelligence**: AI-enhanced threat reports with context-aware attack recommendations and risk analysis.
+- **🎯 Adaptive Attack Strategies**: AI analyzes target information and suggests optimal attack vectors based on service type and vulnerabilities.
+- **📊 AI Training Pipeline**: Complete training infrastructure using Hugging Face datasets (WNT3D/Ultimate-Offensive-Red-Team).
+- **🔄 Fallback AI Mode**: Works offline with pre-defined offensive techniques when full AI models aren't available.
 - **Modern CLI Interface**: Beautiful Terminal UI using the `rich` library with panels, tables, and live progress.
 - **Real-time Monitoring**: Live statistics including Packets/Bytes sent, success rate, and active threads.
 - **System Resource Watchdog**: Integrated monitoring of CPU and Memory usage with safety warnings.
@@ -50,7 +57,7 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 14. **HTTP/2 Rapid Reset**: Exploits stream cancellation in HTTP/2 (CVE-2023-44487).
 15. **Apache Killer**: Range header exhaustion targeting Apache servers.
 16. **Nginx Range DoS**: Overlapping range exploitation for Nginx.
-22. **AI-Adaptive Flood**: Smart flood that adjusts intensity based on server latency.
+22. **AI-Adaptive Flood**: Smart flood that adjusts intensity based on server latency with AI-enhanced targeting.
 33. **Mixed Vector Flood**: Randomized combination of L7 techniques in a single attack.
 34. **Slow Post Attack**: Advanced variant of RUDY with randomized drip-feeding.
 
@@ -81,13 +88,64 @@ A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network s
 32. **Web Exposure Sniper**: Deep scan for leaked configs and exposed directories.
 
 ### Cyber-Sec Toolkit
-23. **Vulnerability Scout**: Quick scans for misconfigured headers (XSS, CORS, CSP) and common sensitive paths.
-24. **Brute Force Suite**: Multi-protocol credential auditor for FTP, SSH, and HTTP Basic Auth.
-26. **Proxy Auto-Pilot**: Automated scraper that gathers, validates, and benchmarks public proxies for latency.
-27. **WiFi Ghost Recon**: Nearby wireless signal monitoring and BSSID tracking (Windows netsh optimized).
-28. **Live Packet Insight**: Real-time traffic sniffer using Scapy to analyze protocol distribution (TCP/UDP/ICMP).
-29. **Payload Laboratory**: Interactive reverse shell generator for Python, Bash, Netcat, and PowerShell.
-30. **Identity Cloak**: Operational Security auditor that checks for IP leaks, VPN status, and MAC address exposure.
+ 23. **Vulnerability Scout**: Quick scans for misconfigured headers (XSS, CORS, CSP) and common sensitive paths.
+ 24. **Brute Force Suite**: Multi-protocol credential auditor for FTP, SSH, and HTTP Basic Auth.
+ 26. **Proxy Auto-Pilot**: Automated scraper that gathers, validates, and benchmarks public proxies for latency.
+ 27. **WiFi Ghost Recon**: Nearby wireless signal monitoring and BSSID tracking (Windows netsh optimized).
+ 28. **Live Packet Insight**: Real-time traffic sniffer using Scapy to analyze protocol distribution (TCP/UDP/ICMP).
+ 29. **Payload Laboratory**: Interactive reverse shell generator for Python, Bash, Netcat, and PowerShell.
+ 30. **Identity Cloak**: Operational Security auditor that checks for IP leaks, VPN status, and MAC address exposure.
+
+## 🤖 AI Integration & Offensive Intelligence
+
+IP-HUNTER v2.1.0-ai introduces cutting-edge AI capabilities for intelligent offensive security operations:
+
+### AI-Powered Attack Strategy Generation
+- **Context-Aware Analysis**: AI analyzes target information (ports, services, vulnerabilities) to suggest optimal attack vectors
+- **Target-Specific Strategies**:
+  - **Web Servers**: SQL Injection, XSS, Directory Traversal, CSRF analysis
+  - **Databases**: Blind SQL Injection, Union-based attacks, Data exfiltration techniques
+  - **Networks**: Port scanning, MITM attacks, ARP poisoning, Wireless exploitation
+  - **Unknown Targets**: Reconnaissance and vulnerability assessment approaches
+
+### Smart Threat Intelligence Reports
+- **AI-Enhanced Reports**: Threat intelligence reports now include AI-generated attack strategies alongside defensive recommendations
+- **Risk-Based Analysis**: AI evaluates target risk scores and suggests appropriate offensive techniques
+- **Professional Output**: Combined defensive and offensive intelligence in unified reports
+
+### Training Infrastructure
+- **Hugging Face Integration**: Uses `WNT3D/Ultimate-Offensive-Red-Team` dataset for model training
+- **Fine-Tuning Pipeline**: Complete training scripts for custom model development
+- **Fallback Mode**: Pre-defined offensive techniques when full AI models aren't available
+
+### AI Features in Action
+```bash
+# AI automatically activates during threat intelligence gathering
+# Example: Scanning a web server triggers AI analysis
+
+Target Analysis: Apache server on ports 80,443 with MySQL backend
+AI Strategy Suggestions:
+1. SQL Injection testing on login forms and search parameters
+2. XSS vulnerability scanning on user input fields
+3. Directory traversal attacks on file upload endpoints
+4. CSRF token analysis and bypass attempts
+5. API endpoint enumeration and parameter tampering
+```
+
+### Training Your Own AI Model
+```bash
+# Train custom AI model (requires GPU recommended)
+python train_ai_model.py
+
+# Test AI integration
+python test_ai_integration.py
+```
+
+### AI Integration Benefits
+- **Intelligent Targeting**: No more guesswork - AI suggests the most effective attack vectors
+- **Educational Value**: Learn offensive techniques through AI-guided analysis
+- **Research Enhancement**: Accelerate red teaming research with AI assistance
+- **Operational Efficiency**: Reduce time spent on manual attack strategy development
 
 ## 🛰️ Technical Deep-Dive
 
@@ -114,9 +172,11 @@ IP-HUNTER features a built-in **Command & Control** system:
 3. **Interactive Shell (ID 00)**: A real-time terminal to broadcast flood commands to your entire botnet with a single "attack" command.
 
 ## 🧪 Testing State (Current)
-- **Status**: Functional verification of all 35 attack vectors in progress.
-- **Target**: `http://#################/`
-- **UI Architecture**: Enhanced Cyberpunk HUD with real-time monitoring and persistent reporting.
+- **Status**: ✅ All 35 attack vectors verified + AI integration complete
+- **AI Integration**: ✅ Offensive strategy generation and threat intelligence enhancement
+- **Target**: `http://203.154.83.24/` (Functional verification completed)
+- **UI Architecture**: Enhanced Cyberpunk HUD with AI-enhanced monitoring and professional reporting
+- **AI Training**: ✅ Pipeline ready with WNT3D/Ultimate-Offensive-Red-Team dataset
 
 ## 🛠️ Requirements
 
@@ -130,7 +190,8 @@ IP-HUNTER features a built-in **Command & Control** system:
   ```bash
   pip install -r requirements.txt
   ```
-  *(Packages: requests, aiohttp, scapy, psutil, rich, PySocks)*
+  *(Core: requests, aiohttp, scapy, psutil, rich, PySocks)*
+  *(AI/ML: torch, transformers, datasets, accelerate)*
 
 ## 📦 Installation
 
@@ -145,6 +206,12 @@ cp ".env example" .env
 
 # Install required packages
 pip install -r requirements.txt
+
+# Optional: Train AI model for enhanced intelligence (requires GPU recommended)
+python train_ai_model.py
+
+# Test AI integration
+python test_ai_integration.py
 
 # Optional: Install Tor for identity protection
 # Download from: https://www.torproject.org/download/
