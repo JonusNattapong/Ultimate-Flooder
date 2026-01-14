@@ -22,6 +22,54 @@
 
 A powerful, multi-vector DDoS (Distributed Denial of Service) tool and network security suite written in Python. This tool features a modern CLI interface, real-time monitoring, and a wide array of attack vectors for security research and educational purposes.
 
+## 🚀 Quick Start Guide
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/JonusNattapong/IP-HUNTER.git
+   cd IP-HUNTER
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the tool**:
+   ```bash
+   python main.py
+   ```
+
+### Basic Usage
+
+1. **Select an attack** from the menu by entering the corresponding ID (e.g., `1` for HTTP Flood).
+2. **Enter target details**:
+   - Target: IP address or URL (e.g., `http://example.com` or `192.168.1.1`)
+   - Port: Default ports are used if not specified
+   - Threads: Number of concurrent threads (default: 100, max: 1000)
+   - Duration: Attack duration in seconds (default: 60, max: 3600)
+3. **Configure options** (optional):
+   - Proxies: Provide a file path to a list of proxies
+   - Stealth Mode: Enable randomized headers and delays
+   - Tor Integration: Route traffic through Tor for anonymity
+4. **Monitor progress**: Real-time statistics are displayed during execution.
+
+### Configuration
+
+- **Proxy File**: Create a `proxies.txt` file with one proxy per line (format: `ip:port` or `user:pass@ip:port`).
+- **Environment Variables**: Set `TOR_ENABLED=1` to force Tor usage.
+- **Advanced Settings**: Edit `src/config.py` for default values like thread limits and timeouts.
+
+### Examples
+
+- **HTTP Flood**: Select ID `1`, target `http://target.com`, threads `50`, duration `30`.
+- **Port Scan**: Select ID `17`, target `192.168.1.1`, ports `1-65535`.
+- **Vulnerability Scan**: Select ID `23`, target `http://target.com`.
+
+**Note**: Always test in controlled environments. Unauthorized use is illegal.
+
 ## ⚠️ Disclaimer
 
 **This tool is for educational purposes only!** Using this software to attack or disrupt any network or service without explicit permission is illegal and unethical. The author is not responsible for any misuse or damage caused by this tool. Always ensure you have proper authorization before testing any network security measures.
