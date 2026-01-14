@@ -1,13 +1,16 @@
 import time
 import threading
 import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.core.dispatcher import AttackDispatcher
 from src.core.menu import Menu
 from src.config import CONFIG
 
 # Target for testing
-TARGET = "http://203.154.83.24/"
-IP_TARGET = "203.154.83.24"
+TARGET = "http://localhost:8081/"
+IP_TARGET = "localhost"
 DURATION = 2
 THREADS = 5
 
@@ -20,7 +23,7 @@ def test_attack(choice):
     
     params = {
         "target": target,
-        "port": 80,
+        "port": 8081,
         "threads": THREADS,
         "duration": DURATION,
         "max_requests": 0,
