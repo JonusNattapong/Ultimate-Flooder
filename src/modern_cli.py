@@ -37,6 +37,7 @@ from src.attacks.tools import proxy_autopilot
 from src.utils.ui import create_cyber_progress, create_attack_config_panel, create_monitoring_dashboard
 from src.utils.network import get_vpn_ip
 from src.utils.system import cleanup_temp_files
+from src.core.ai_orchestrator import AIOrchestrator, TargetProfile, AttackSuggestion
 
 # Initialize Rich Console with optimized settings for Windows
 console = Console(force_terminal=True, color_system="auto")
@@ -363,6 +364,9 @@ class ModernCLI:
     # Status Caching for smoother menu
     _cached_tor_status = None
     _last_tor_check = 0
+    
+    # AI Orchestrator
+    ai_orch = AIOrchestrator()
 
     @staticmethod
     def manage_targets():
@@ -795,6 +799,29 @@ class ModernCLI:
             console.print("[bold red]❌ Invalid target format![/bold red]")
             return ModernCLI.get_attack_params(choice)
 
+        # AI Reconnaissance & Suggestion Hook
+        if Confirm.ask("[bold green]Perform AI Deep Recon & Strategy Suggestion?[/bold green]", default=False):
+            suggestions = ModernCLI._run_ai_recon(target)
+            if suggestions:
+                selected = ModernCLI._display_ai_suggestions(suggestions)
+                if selected:
+                    # Auto-fill parameters from AI suggestion
+                    console.print(f"[bold green]✅ AI Strategy Applied:[/] [white]{selected.attack_name}[/white]")
+                    params.update({
+                        "threads": selected.recommended_threads,
+                        "duration": selected.recommended_duration,
+                        "use_tor": selected.use_tor,
+                        "stealth_mode": selected.use_stealth,
+                        "ai_suggestion": selected
+                    })
+                    # Special case: AI might suggest a different attack vector than current choice
+                    if selected.attack_id != choice:
+                        console.print(f"[bold yellow]⚠️  AI recommends switching to {selected.attack_name} (ID {selected.attack_id})[/bold yellow]")
+                        if Confirm.ask("Switch to recommended attack?", default=True):
+                            choice = selected.attack_id
+                            # Re-fetch attack_info for correct display later
+                            attack_info = Menu.ATTACKS.get(choice)
+
         # Port input
         port = 0
         if choice != "19": # ICMP doesn't need port
@@ -1220,6 +1247,66 @@ class ModernCLI:
         console.print(f"[green][[ DONE ]][/green] ACCESS GRANTED")
         time.sleep(0.4)
         os.system('cls' if os.name == 'nt' else 'clear')
+
+    @staticmethod
+    def _run_ai_recon(target: str):
+        """Perform AI profiling and get suggestions"""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            transient=True
+        ) as progress:
+            task = progress.add_task("[bold cyan]AI ORCHESTRATOR: ANALYZING TARGET...", total=100)
+            
+            # Phase 1: Recon
+            progress.update(task, advance=20, description="[bold cyan]AI: IDENTIFYING SERVICES...")
+            profile = ModernCLI.ai_orch.analyze_target(target)
+            
+            # Phase 2: Vulnerability Mapping
+            progress.update(task, advance=40, description="[bold cyan]AI: MAPPING VULNERABILITIES...")
+            suggestions = ModernCLI.ai_orch.suggest_attack_strategy(profile)
+            
+            # Phase 3: Optimization
+            progress.update(task, advance=40, description="[bold cyan]AI: OPTIMIZING STRATEGY...")
+            time.sleep(0.5)
+            
+            return suggestions
+
+    @staticmethod
+    def _display_ai_suggestions(suggestions):
+        """Display suggestions and let user select one"""
+        console.clear()
+        console.print(Align.center(Text("🤖 AI ORCHESTRATOR RECOMMENDATIONS", style="bold cyan")))
+        
+        table = Table(box=HEAVY_EDGE, expand=True)
+        table.add_column("ID", style="cyan", justify="center")
+        table.add_column("Attack Vector", style="white")
+        table.add_column("Rank", justify="center")
+        table.add_column("Confidence", justify="right")
+        table.add_column("Strategy Reason", style="dim white")
+        
+        for idx, s in enumerate(suggestions, 1):
+            conf_color = "green" if s.confidence > 0.8 else "yellow" if s.confidence > 0.5 else "red"
+            rank = "⭐" * (6 - s.priority)
+            table.add_row(
+                str(idx), 
+                s.attack_name, 
+                rank, 
+                f"[{conf_color}]{s.confidence*100:.1f}%[/]", 
+                s.reason
+            )
+        
+        console.print(table)
+        console.print(Panel(
+            "[bold white]Enter ID to Apply AI Strategy [/bold white] | [bold white]Enter '0' to Skip[/bold white]",
+            border_style="cyan"
+        ))
+        
+        sel = IntPrompt.ask("[bold cyan]AI SELECT[/bold cyan]", default=0)
+        if 0 < sel <= len(suggestions):
+            return suggestions[sel-1]
+        return None
 
     @staticmethod
     def run():
